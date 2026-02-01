@@ -624,28 +624,17 @@ func (h *ChannelHandler) DeleteChannelMessage(c *fiber.Ctx) error {
 		return c.Status(403).JSON(fiber.Map{"error": "只能删除自己的消息"})
 	}
 
+	// 收集需要删除的附件信息
+	var attachmentToDelete *models.Attachment
+
 	// 开始事务删除消息和相关文件
 	err := h.DB.Transaction(func(tx *gorm.DB) error {
-		// 如果消息有附件，删除附件记录和文件
+		// 如果消息有附件，标记为待删除
 		if message.AttachmentID != nil {
 			var attachment models.Attachment
 			if err := tx.First(&attachment, *message.AttachmentID).Error; err == nil {
-				// 删除附件文件
-				if attachment.FilePath != "" {
-					// 构建完整的文件路径
-					if filepath.IsAbs(attachment.FilePath) {
-						os.Remove(attachment.FilePath)
-						// 尝试删除空文件夹（从文件所在目录开始向上清理）
-						cleanupEmptyDirsSafe(filepath.Dir(attachment.FilePath))
-					} else {
-						// 相对路径，基于uploads目录
-						fullPath := filepath.Join("./uploads", attachment.FilePath)
-						os.Remove(fullPath)
-						// 尝试删除空文件夹（从文件所在目录开始向上清理）
-						cleanupEmptyDirsSafe(filepath.Dir(fullPath))
-					}
-				}
-				// 删除附件记录
+				attachmentToDelete = &attachment
+				// 删除附件记录（文件稍后删除）
 				tx.Delete(&attachment)
 			}
 		}
@@ -667,6 +656,18 @@ func (h *ChannelHandler) DeleteChannelMessage(c *fiber.Ctx) error {
 		"id":         message.ID,
 		"channel_id": message.ChannelID,
 	})
+
+	// 延迟删除文件（等待浏览器释放引用）
+	if attachmentToDelete != nil && attachmentToDelete.FilePath != "" {
+		cwd, _ := os.Getwd()
+		fullPath := filepath.Join(cwd, "data", attachmentToDelete.FilePath)
+		absPath, _ := filepath.Abs(fullPath)
+
+		go func() {
+			time.Sleep(5 * time.Second)
+			os.Remove(absPath)
+		}()
+	}
 
 	return c.JSON(fiber.Map{"message": "消息已删除"})
 }

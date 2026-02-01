@@ -3,6 +3,9 @@ package handlers
 import (
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
+	"time"
 
 	"github.com/MiXiaoAi/oinote/backend/internal/models"
 	"github.com/MiXiaoAi/oinote/backend/internal/websocket"
@@ -165,6 +168,82 @@ func (h *NoteHandler) UpdateNote(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": "更新笔记失败"})
 	}
 
+	// 清理不再使用的附件
+	if input.Content != nil {
+		// 获取该笔记的所有附件
+		var attachments []models.Attachment
+		h.DB.Where("note_id = ?", note.ID).Find(&attachments)
+
+		// 从新内容中提取所有文件路径
+		newContent := *input.Content
+		usedFilePaths := make(map[string]bool)
+
+		// 使用正则表达式提取所有图片src和文件链接
+		imgRegex := regexp.MustCompile(`<img[^>]+src=["']([^"']+)["']`)
+		imgMatches := imgRegex.FindAllStringSubmatch(newContent, -1)
+		for _, match := range imgMatches {
+			if len(match) > 1 {
+				filePath := match[1]
+				if idx := strings.Index(filePath, "?"); idx != -1 {
+					filePath = filePath[:idx]
+				}
+				if strings.HasPrefix(filePath, "http://") || strings.HasPrefix(filePath, "https://") {
+					if idx := strings.Index(filePath, "/uploads/"); idx != -1 {
+						filePath = filePath[idx:]
+					}
+				}
+				usedFilePaths[filePath] = true
+			}
+		}
+
+		// 匹配链接
+		linkRegex := regexp.MustCompile(`<a[^>]+href=["']([^"']+)["']`)
+		linkMatches := linkRegex.FindAllStringSubmatch(newContent, -1)
+		for _, match := range linkMatches {
+			if len(match) > 1 {
+				filePath := match[1]
+				if idx := strings.Index(filePath, "?"); idx != -1 {
+					filePath = filePath[:idx]
+				}
+				if strings.HasPrefix(filePath, "http://") || strings.HasPrefix(filePath, "https://") {
+					if idx := strings.Index(filePath, "/uploads/"); idx != -1 {
+						filePath = filePath[idx:]
+					}
+				}
+				usedFilePaths[filePath] = true
+			}
+		}
+
+		// 收集待删除的附件
+		var toDelete []models.Attachment
+		for _, attachment := range attachments {
+			if !usedFilePaths[attachment.FilePath] {
+				toDelete = append(toDelete, attachment)
+			}
+		}
+
+		// 延迟删除文件（等待浏览器释放引用）
+		if len(toDelete) > 0 {
+			// 立即删除数据库记录
+			for _, attachment := range toDelete {
+				h.DB.Delete(&attachment)
+			}
+
+			// 5秒后删除文件
+			go func() {
+				time.Sleep(5 * time.Second)
+				for _, attachment := range toDelete {
+					if attachment.FilePath != "" {
+						cwd, _ := os.Getwd()
+						fullPath := filepath.Join(cwd, "data", attachment.FilePath)
+						absPath, _ := filepath.Abs(fullPath)
+						os.Remove(absPath)
+					}
+				}
+			}()
+		}
+	}
+
 	// 重新加载完整的笔记信息，包括 Owner
 	h.DB.Preload("Owner").First(&note, note.ID)
 
@@ -206,10 +285,24 @@ func (h *NoteHandler) DeleteNote(c *fiber.Ctx) error {
 		return c.Status(404).JSON(fiber.Map{"error": "笔记不存在或无权删除"})
 	}
 
+	// 获取该笔记的所有附件
+	var attachments []models.Attachment
+	h.DB.Where("note_id = ?", note.ID).Find(&attachments)
+
+	// 删除所有附件文件
+	for _, attachment := range attachments {
+		if attachment.FilePath != "" {
+			fullPath := filepath.Join("./data", attachment.FilePath)
+			os.Remove(fullPath)
+		}
+	}
+
+	// 删除附件记录
 	h.DB.Where("note_id = ?", note.ID).Delete(&models.Attachment{})
 
-	uploadDir := filepath.Join("./uploads", "notes", "note_"+noteId)
-	os.RemoveAll(uploadDir)
+	// 删除笔记目录
+	noteDir := filepath.Join("./data/uploads/notes", "note_"+noteId)
+	os.RemoveAll(noteDir)
 
 	if err := h.DB.Delete(&note).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "删除笔记失败"})

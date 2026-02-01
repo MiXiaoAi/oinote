@@ -29,10 +29,18 @@
             <div class="flex items-start gap-4">
               <!-- User Avatar -->
               <div class="avatar">
-                <div class="w-12 h-12 bg-neutral text-neutral-content rounded-full flex items-center justify-center text-lg font-bold">
-                  {{ approval.status === 'invited'
-                    ? (approval.channel?.owner?.username?.charAt(0) || '?')
-                    : (approval.user?.username?.charAt(0) || '?') }}
+                <div class="w-12 h-12 bg-neutral text-neutral-content rounded-full flex items-center justify-center text-lg font-bold overflow-hidden">
+                  <img
+                    v-if="approval.status === 'invited' ? approval.channel?.owner?.avatar : approval.user?.avatar"
+                    :src="getFileUrl(approval.status === 'invited' ? approval.channel?.owner?.avatar : approval.user?.avatar)"
+                    alt="avatar"
+                    class="w-full h-full object-cover"
+                  />
+                  <span v-else>
+                    {{ approval.status === 'invited'
+                      ? (approval.channel?.owner?.username?.charAt(0) || '?')
+                      : (approval.user?.username?.charAt(0) || '?') }}
+                  </span>
                 </div>
               </div>
 
@@ -83,6 +91,7 @@ import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import api from '../api/axios';
+import { getFileUrl } from '../utils/urlHelper';
 
 const router = useRouter();
 const authStore = useAuthStore();

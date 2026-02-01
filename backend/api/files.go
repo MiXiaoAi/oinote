@@ -63,7 +63,7 @@ func (h *FileHandler) Upload(c *fiber.Ctx) error {
 	switch fileType {
 	case "avatar":
 		subDir = "avatars"
-	case "channel_file":
+	case "channel", "channel_file":
 		contentType := file.Header.Get("Content-Type")
 		channelFolder := "channels"
 		if channelID != nil {
@@ -76,7 +76,7 @@ func (h *FileHandler) Upload(c *fiber.Ctx) error {
 		} else {
 			subDir = filepath.Join(channelFolder, "files")
 		}
-	case "note_attachment":
+	case "note", "note_attachment":
 		noteFolder := "notes"
 		if noteID != nil {
 			noteFolder = filepath.Join("notes", fmt.Sprintf("note_%d", *noteID))

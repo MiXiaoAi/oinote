@@ -219,9 +219,7 @@
       <!-- Drag overlay -->
       <div v-if="isDragging && canEdit" class="absolute inset-0 bg-primary/10 border-2 border-dashed border-primary rounded-lg z-10 flex items-center justify-center pointer-events-none">
         <div class="text-center">
-          <svg class="w-16 h-16 mx-auto mb-2 text-primary opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-          </svg>
+          <UploadCloud class="w-16 h-16 mx-auto mb-2 text-primary opacity-60" />
           <p class="text-lg font-medium text-primary">拖放文件到此处</p>
           <p class="text-sm text-base-content/60 mt-1">图片将直接插入，其他文件将作为附件</p>
         </div>
@@ -337,7 +335,7 @@ import {
   ArrowLeftToLine, ArrowRightToLine, ArrowUpToLine, ArrowDownToLine,
   Trash2, Merge, Split, X,
   Clipboard, Scissors, ClipboardCopy,
-  Image as ImageIcon, Paperclip, Edit3
+  Image as ImageIcon, Paperclip, Edit3, UploadCloud
 } from 'lucide-vue-next';
 import api from '../api/axios';
 import eventBus from '../utils/eventBus';
@@ -399,6 +397,9 @@ const editor = new Editor({
       heading: {
         levels: [1, 2, 3],
       },
+      // StarterKit 包含了 Link 和 Underline，所以需要排除
+      link: false,
+      underline: false,
     }),
     TextAlign.configure({
       types: ['heading', 'paragraph', 'image'],

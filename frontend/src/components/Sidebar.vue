@@ -151,10 +151,7 @@
         <span class="text-xs font-medium text-base-content/70">设置与外观</span>
         <div class="flex items-center gap-1">
           <router-link to="/approvals" class="btn btn-ghost btn-xs btn-circle" title="消息通知">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.73 21a2 2 0 01-3.46 0" />
-            </svg>
+            <Bell class="w-4 h-4" />
           </router-link>
           <button class="btn btn-ghost btn-xs btn-circle" title="设置" @click="openSettings">
             <Settings class="w-4 h-4" />
@@ -170,7 +167,7 @@
       <div class="flex items-center p-2 rounded-lg bg-base-300/50 space-x-3">
         <div class="avatar">
           <div class="rounded-full w-9 h-9 shadow-sm overflow-hidden bg-neutral text-neutral-content flex items-center justify-center">
-            <img v-if="authStore.user?.avatar" :src="authStore.user.avatar" alt="avatar" class="w-full h-full object-cover" />
+            <img v-if="authStore.user?.avatar" :src="getFileUrl(authStore.user.avatar)" alt="avatar" class="w-full h-full object-cover" />
             <span v-else class="text-sm font-bold">{{ avatarChar }}</span>
           </div>
         </div>
@@ -202,13 +199,35 @@
             <label class="label">
               <span class="label-text">头像</span>
             </label>
-            <input ref="avatarInputRef" type="file" accept="image/*" class="file-input file-input-bordered w-full" @change="handleAvatarSelected" :disabled="isUploadingAvatar" />
-            <div v-if="isUploadingAvatar" class="mt-2">
-              <div class="flex items-center justify-between text-xs mb-1">
-                <span>上传中...</span>
-                <span>{{ avatarUploadProgress }}%</span>
+            <div class="flex items-center gap-4">
+              <div class="avatar">
+                <div class="w-20 h-20 rounded-full bg-neutral text-neutral-content flex items-center justify-center overflow-hidden border-2 border-base-300">
+                  <img
+                    v-if="avatarPreviewUrl || authStore.user?.avatar"
+                    :src="avatarPreviewUrl || getFileUrl(authStore.user?.avatar)"
+                    alt="头像预览"
+                    class="w-full h-full object-cover"
+                  />
+                  <span v-else class="text-2xl font-bold">{{ avatarChar }}</span>
+                </div>
               </div>
-              <progress class="progress progress-sm w-full" :value="avatarUploadProgress" max="100"></progress>
+              <div class="flex-1">
+                <input
+                  ref="avatarInputRef"
+                  type="file"
+                  accept="image/*"
+                  class="file-input file-input-bordered w-full"
+                  @change="handleAvatarSelected"
+                  :disabled="isUploadingAvatar"
+                />
+                <div v-if="isUploadingAvatar" class="mt-2">
+                  <div class="flex items-center justify-between text-xs mb-1">
+                    <span>上传中...</span>
+                    <span>{{ avatarUploadProgress }}%</span>
+                  </div>
+                  <progress class="progress progress-sm w-full" :value="avatarUploadProgress" max="100"></progress>
+                </div>
+              </div>
             </div>
           </div>
           <div>
@@ -303,9 +322,10 @@ import { useThemeStore } from '../stores/theme';
 import api from '../api/axios';
 import eventBus from '../utils/eventBus';
 import ManageModal from './ManageModal.vue';
+import { getFileUrl } from '../utils/urlHelper';
 import {
   Hash, FileText, Sun, Moon, LogOut, Settings,
-  Edit, Trash2, Users, Info, User, Plus, ChevronRight
+  Edit, Trash2, Users, Info, User, Plus, ChevronRight, Bell
 } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -356,6 +376,7 @@ const settingsNickname = ref('');
 const settingsBio = ref('');
 const avatarInputRef = ref(null);
 const selectedAvatarFile = ref(null);
+const avatarPreviewUrl = ref(null);
 
 const notification = inject('notification');
 
@@ -421,17 +442,29 @@ const openSettings = async () => {
   settingsNickname.value = authStore.user?.nickname || '';
   settingsBio.value = authStore.user?.bio || '';
   selectedAvatarFile.value = null;
+  avatarPreviewUrl.value = null;
   if (avatarInputRef.value) avatarInputRef.value.value = '';
   showSettings.value = true;
 };
 
 const closeSettings = () => {
   showSettings.value = false;
+  // 清理预览 URL
+  if (avatarPreviewUrl.value) {
+    URL.revokeObjectURL(avatarPreviewUrl.value);
+    avatarPreviewUrl.value = null;
+  }
 };
 
 const handleAvatarSelected = (e) => {
   const file = e.target?.files?.[0];
   selectedAvatarFile.value = file || null;
+  // 创建预览 URL
+  if (file) {
+    avatarPreviewUrl.value = URL.createObjectURL(file);
+  } else {
+    avatarPreviewUrl.value = null;
+  }
 };
 
 const uploadAvatar = async (file) => {
@@ -472,6 +505,11 @@ const saveSettings = async () => {
     };
     await authStore.updateMe(payload);
     if (notification) notification.showNotification('保存成功', 'success');
+    // 清理预览 URL
+    if (avatarPreviewUrl.value) {
+      URL.revokeObjectURL(avatarPreviewUrl.value);
+      avatarPreviewUrl.value = null;
+    }
     showSettings.value = false;
   } catch (err) {
     if (notification) notification.showNotification(err.response?.data?.error || '保存失败', 'error');

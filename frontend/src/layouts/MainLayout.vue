@@ -90,9 +90,7 @@
           title="主页"
           @click="goToHome"
         >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-          </svg>
+          <Home class="w-5 h-5" />
         </button>
 
         <!-- Notes Section -->
@@ -117,10 +115,11 @@
         <div class="relative user-menu">
           <div class="avatar">
             <div
-              class="rounded-full w-8 h-8 bg-neutral text-neutral-content flex items-center justify-center text-xs cursor-pointer hover:bg-neutral-focus transition-colors"
+              class="rounded-full w-8 h-8 bg-neutral text-neutral-content flex items-center justify-center text-xs cursor-pointer hover:bg-neutral-focus transition-colors overflow-hidden"
               @click="showUserMenu = !showUserMenu"
             >
-              <span>{{ avatarChar }}</span>
+              <img v-if="authStore.user?.avatar" :src="getFileUrl(authStore.user.avatar)" alt="avatar" class="w-full h-full object-cover" />
+              <span v-else>{{ avatarChar }}</span>
             </div>
           </div>
 
@@ -137,9 +136,7 @@
                 class="w-full text-left px-3 py-2 text-sm hover:bg-base-200 rounded-lg flex items-center gap-2"
                 @click="showUserMenu = false"
               >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
-                </svg>
+                <Bell class="w-4 h-4" />
                 消息通知
               </router-link>
               <button
@@ -147,10 +144,7 @@
                 @click="openSettings"
                 class="w-full text-left px-3 py-2 text-sm hover:bg-base-200 rounded-lg flex items-center gap-2"
               >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c-.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
+                <Settings class="w-4 h-4" />
                 设置
               </button>
               <button
@@ -158,9 +152,7 @@
                 @click="logout"
                 class="w-full text-left px-3 py-2 text-sm text-error hover:bg-error/10 rounded-lg flex items-center gap-2"
               >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
+                <LogOut class="w-4 h-4" />
                 退出登录
               </button>
               <button
@@ -168,9 +160,7 @@
                 @click="goToLogin"
                 class="w-full text-left px-3 py-2 text-sm hover:bg-base-200 rounded-lg flex items-center gap-2"
               >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                </svg>
+                <LogIn class="w-4 h-4" />
                 登录
               </button>
             </div>
@@ -306,7 +296,7 @@
                   class="badge badge-ghost cursor-pointer hover:bg-base-300"
                   @click="removeChannelTag(tag)"
                 >
-                  {{ tag }} &times;
+                  {{ tag }}
                 </span>
               </div>
             </div>
@@ -367,7 +357,7 @@
                   class="badge badge-ghost cursor-pointer hover:bg-base-300"
                   @click="removeNoteTag(tag)"
                 >
-                  {{ tag }} &times;
+                  {{ tag }}
                 </span>
               </div>
             </div>
@@ -388,12 +378,13 @@
 import { ref, onMounted, onBeforeUnmount, watch, computed, reactive, provide } from 'vue';
 import { useAuthStore } from '../stores/auth';
 import { useRoute, useRouter } from 'vue-router';
-import { Plus, FileText, Hash, Settings, User } from 'lucide-vue-next';
+import { Plus, FileText, Hash, Settings, User, Home, Bell, LogOut, LogIn } from 'lucide-vue-next';
 import api from '../api/axios';
 import Sidebar from '../components/Sidebar.vue';
 import MobileDrawer from '../components/MobileDrawer.vue';
 import eventBus from '../utils/eventBus';
 import wsClient from '../utils/websocket';
+import { getFileUrl } from '../utils/urlHelper';
 
 const authStore = useAuthStore();
 const route = useRoute();

@@ -64,15 +64,10 @@
             @click="showMembers = !showMembers"
           >
             <span>成员管理</span>
-            <svg
+            <ChevronDown
               class="w-4 h-4 transition-transform"
               :class="{ 'rotate-180': showMembers }"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-            </svg>
+            />
           </div>
           <div v-if="showMembers" class="mt-3 space-y-3">
             <div>
@@ -132,6 +127,7 @@ import { ref, computed, watch, inject } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import api from '../api/axios';
+import { ChevronDown } from 'lucide-vue-next';
 
 const props = defineProps({
   open: Boolean,

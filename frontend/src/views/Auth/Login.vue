@@ -37,9 +37,7 @@
         <div class="flex items-center justify-between mb-6">
           <h3 class="font-bold text-lg">修改密码</h3>
           <button @click="closePasswordModal" class="btn btn-ghost btn-sm btn-circle">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <X class="h-4 w-4" />
           </button>
         </div>
         
@@ -97,9 +95,7 @@
           </div>
           
           <div v-if="passwordError" class="alert alert-error text-sm py-2">
-            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-4 w-4" fill="none" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-            </svg>
+            <AlertTriangle class="stroke-current shrink-0 h-4 w-4" />
             <span>{{ passwordError }}</span>
           </div>
           
@@ -130,6 +126,7 @@ import { ref } from 'vue';
 import { useAuthStore } from '../../stores/auth';
 import { useRouter } from 'vue-router';
 import api from '../../api/axios';
+import { X, AlertTriangle } from 'lucide-vue-next';
 
 const authStore = useAuthStore();
 const router = useRouter();

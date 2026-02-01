@@ -13,9 +13,7 @@
             <!-- 拖放覆盖层 -->
             <div v-if="isDragging" class="absolute inset-0 bg-primary/10 border-2 border-dashed border-primary rounded-lg z-10 flex items-center justify-center">
               <div class="text-center">
-                <svg class="w-16 h-16 mx-auto mb-2 text-primary opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                </svg>
+                <UploadCloud class="w-16 h-16 mx-auto mb-2 text-primary opacity-60" />
                 <p class="text-lg font-medium text-primary">拖放文件到此处</p>
                 <p class="text-sm text-base-content/60 mt-1">松开鼠标即可上传</p>
               </div>
@@ -48,8 +46,9 @@
                 <!-- 普通消息 -->
                 <template v-else>
                   <div class="avatar">
-                    <div class="rounded-full w-9 h-9 bg-neutral text-neutral-content flex items-center justify-center text-sm font-medium shrink-0">
-                      <span>{{ (msg.user?.nickname || msg.user?.username || '?').charAt(0) }}</span>
+                    <div class="rounded-full w-9 h-9 bg-neutral text-neutral-content flex items-center justify-center text-sm font-medium shrink-0 overflow-hidden">
+                      <img v-if="msg.user?.avatar" :src="getFileUrl(msg.user.avatar)" alt="avatar" class="w-full h-full object-cover" />
+                      <span v-else>{{ (msg.user?.nickname || msg.user?.username || '?').charAt(0) }}</span>
                     </div>
                   </div>
                   <div class="flex-1 min-w-0" @contextmenu.prevent="handleMessageContextMenu($event, msg)">
@@ -98,9 +97,7 @@
                       class="cursor-pointer inline-block transition-all"
                     >
                       <div class="flex items-center gap-2 p-2 rounded-lg border border-base-300 hover:bg-base-100 hover:border-primary transition-all">
-                        <svg class="w-5 h-5 text-base-content/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                        </svg>
+                        <Music class="w-5 h-5 text-base-content/60" />
                         <div>
                           <p class="text-sm font-medium text-base-content">{{ msg.attachment.file_name || '音频文件' }}</p>
                           <p class="text-xs text-base-content/50">点击播放音频</p>
@@ -113,9 +110,7 @@
                       target="_blank"
                       class="inline-flex items-center gap-2 p-2 rounded-lg border border-base-300 hover:bg-base-100 hover:border-primary transition-all text-sm text-base-content/70 hover:text-base-content"
                     >
-                      <svg class="w-5 h-5 text-base-content/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                      </svg>
+                      <File class="w-5 h-5 text-base-content/60" />
                       <span class="truncate max-w-[200px]">{{ msg.attachment.file_name || '附件' }}</span>
                     </a>
                   </div>
@@ -276,7 +271,7 @@
                     class="badge badge-ghost cursor-pointer hover:bg-base-300"
                     @click="removeNoteTag(tag)"
                   >
-                    {{ tag }} &times;
+                    {{ tag }}
                   </span>
                 </div>
               </div>
@@ -391,8 +386,9 @@
                                     <div class="text-base mb-1 opacity-30">暂无成员</div>
                                   </div>      <div v-else v-for="m in members" :key="m.id" class="flex items-center space-x-2 p-2 rounded-lg border border-transparent hover:border-base-300 hover:bg-base-100 transition-all cursor-pointer" @click="openMemberPanel(m)">
         <div class="avatar">
-          <div class="bg-neutral text-neutral-content rounded-full w-9 h-9 flex items-center justify-center text-sm font-medium">
-            <span>{{ m.user?.username[0] }}</span>
+          <div class="bg-neutral text-neutral-content rounded-full w-9 h-9 flex items-center justify-center text-sm font-medium overflow-hidden">
+            <img v-if="m.user?.avatar" :src="getFileUrl(m.user.avatar)" alt="avatar" class="w-full h-full object-cover" />
+            <span v-else>{{ m.user?.username[0] }}</span>
           </div>
         </div>
         <div class="min-w-0 flex-1">
@@ -472,8 +468,9 @@
           <div class="card bg-base-100 mb-4">
             <div class="card-body p-4 text-center">
               <div class="avatar online mx-auto mb-2">
-                <div class="w-16 h-16 bg-neutral text-neutral-content rounded-full flex items-center justify-center text-xl font-bold">
-                  {{ selectedMember?.user?.username?.charAt(0) || '?' }}
+                <div class="w-16 h-16 bg-neutral text-neutral-content rounded-full flex items-center justify-center text-xl font-bold overflow-hidden">
+                  <img v-if="selectedMember?.user?.avatar" :src="getFileUrl(selectedMember.user.avatar)" alt="avatar" class="w-full h-full object-cover" />
+                  <span v-else>{{ selectedMember?.user?.username?.charAt(0) || '?' }}</span>
                 </div>
               </div>
               <h4 class="font-bold">{{ selectedMember?.user?.nickname || selectedMember?.user?.username }}</h4>
@@ -547,8 +544,9 @@
               @click="openMemberPanel(m)"
             >
               <div class="avatar">
-                <div class="bg-neutral text-neutral-content rounded-full w-9 h-9 flex items-center justify-center text-sm font-medium">
-                  <span>{{ m.user?.username[0] }}</span>
+                <div class="bg-neutral text-neutral-content rounded-full w-9 h-9 flex items-center justify-center text-sm font-medium overflow-hidden">
+                  <img v-if="m.user?.avatar" :src="getFileUrl(m.user.avatar)" alt="avatar" class="w-full h-full object-cover" />
+                  <span v-else>{{ m.user?.username[0] }}</span>
                 </div>
               </div>
               <div class="min-w-0 flex-1">
@@ -566,7 +564,7 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch, computed, inject } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { Paperclip, FileText, Plus } from 'lucide-vue-next';
+import { Paperclip, FileText, Plus, UploadCloud, Music, File } from 'lucide-vue-next';
 import { useAuthStore } from '../stores/auth';
 import api from '../api/axios';
 import eventBus from '../utils/eventBus';
@@ -1078,7 +1076,7 @@ const sendMessage = async () => {
 
       const form = new FormData();
       form.append('file', selectedMessageFile.value);
-      form.append('type', 'channel_file');
+      form.append('type', 'channel');
       form.append('channel_id', id);
 
       const uploadRes = await api.post('/upload', form, {
