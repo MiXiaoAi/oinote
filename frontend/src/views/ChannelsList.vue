@@ -1,0 +1,245 @@
+<template>
+  <div class="bg-base-100">
+    <div class="max-w-4xl mx-auto px-4 py-6 pb-20 lg:pb-6">
+      <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold">频道</h1>
+        <button
+          v-if="authStore.isAuthenticated"
+          @click="$emit('create-channel')"
+          class="btn btn-neutral btn-sm"
+        >
+          新建频道
+        </button>
+      </div>
+
+      <div v-if="loading" class="text-center py-12 text-base-content/50">
+        <div class="text-sm">加载中...</div>
+      </div>
+
+      <div v-else-if="channels.length === 0" class="text-center py-12 text-base-content/40">
+        <div class="text-sm">{{ authStore.isAuthenticated ? '暂无频道' : '暂无公开频道' }}</div>
+      </div>
+
+      <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div
+          v-for="ch in channels"
+          :key="ch.id"
+          class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md transition-shadow hover:border-base-400"
+        >
+          <div class="card-body p-4">
+            <div class="flex items-start gap-2 mb-2">
+              <div class="w-8 h-8 bg-neutral text-neutral-content rounded-full flex items-center justify-center text-xs font-bold shrink-0">
+                {{ ch.name.charAt(0).toUpperCase() }}
+              </div>
+              <div class="flex-1 min-w-0">
+                <h3 class="font-medium text-base-content mb-1 truncate text-sm">{{ ch.name }}</h3>
+                <div class="flex items-center gap-2 text-xs text-base-content/50">
+                  <span>{{ ch.owner?.nickname || ch.owner?.username || '未知' }}</span>
+                  <span class="shrink-0">{{ formatDate(ch.created_at) }}</span>
+                </div>
+              </div>
+            </div>
+            <p class="text-sm text-base-content/70 mb-2 line-clamp-2">{{ ch.description || '暂无描述' }}</p>
+            <div v-if="ch.tags" class="flex flex-wrap gap-1 mb-2">
+              <span
+                v-for="tag in parseTags(ch.tags)"
+                :key="tag"
+                class="badge badge-ghost badge-xs text-xs"
+              >
+                {{ tag }}
+              </span>
+            </div>
+            <div v-if="ch.is_public" class="flex items-center gap-1 text-xs text-base-content/50 mb-2">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>公开</span>
+            </div>
+            <div class="flex gap-2">
+              <router-link
+                :to="{ name: 'channel', params: { id: ch.id } }"
+                class="btn btn-sm btn-neutral flex-1"
+              >
+                进入频道
+              </router-link>
+              <button
+                v-if="!authStore.isAuthenticated"
+                disabled
+                class="btn btn-sm btn-ghost flex-1 opacity-50"
+                title="请先登录"
+              >
+                需登录
+              </button>
+              <button
+                v-else-if="!ch.is_public"
+                disabled
+                class="btn btn-sm btn-ghost flex-1 opacity-50"
+                title="该频道不支持申请"
+              >
+                不可申请
+              </button>
+              <button
+                v-else-if="isChannelMember(ch.id)"
+                disabled
+                class="btn btn-sm btn-ghost flex-1 opacity-50"
+              >
+                已申请
+              </button>
+              <button
+                v-else
+                @click="joinChannel(ch.id)"
+                :disabled="ch._joining"
+                class="btn btn-sm btn-ghost flex-1"
+              >
+                {{ ch._joining ? '申请中...' : '申请加入' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted, onBeforeUnmount } from 'vue';
+import api from '../api/axios';
+import { useAuthStore } from '../stores/auth';
+import wsClient from '../utils/websocket';
+
+const emit = defineEmits(['create-channel']);
+const authStore = useAuthStore();
+const channels = ref([]);
+const loading = ref(true);
+
+const loadChannels = async () => {
+  loading.value = true;
+  try {
+    if (authStore.isAuthenticated) {
+      const res = await api.get('/channels');
+      channels.value = res.data || [];
+    } else {
+      const res = await api.get('/public/channels');
+      channels.value = res.data || [];
+    }
+  } catch (error) {
+    console.error('Failed to fetch channels:', error);
+    channels.value = [];
+  } finally {
+    loading.value = false;
+  }
+};
+
+const isChannelMember = (channelId) => {
+  return false;
+};
+
+const joinChannel = async (channelId) => {
+  // 检查频道是否公开
+  const channel = channels.value.find(ch => ch.id === channelId);
+  if (!channel) {
+    alert('频道不存在');
+    return;
+  }
+
+  if (!channel.is_public) {
+    alert('该频道为私有频道，无法直接申请加入');
+    return;
+  }
+
+  if (!authStore.isAuthenticated) {
+    alert('请先登录后再申请加入频道');
+    return;
+  }
+
+  try {
+    if (channel) {
+      channel._joining = true;
+    }
+
+    // 后端从 URL 参数中获取频道 ID，不需要发送请求体
+    const response = await api.post(`/channels/${channelId}/join`);
+
+    if (channel) {
+      channel._joining = false;
+    }
+
+    if (response.status === 200 || response.status === 201) {
+      alert('申请已提交，等待管理员审核');
+      // 刷新频道列表，显示已申请状态
+      await loadChannels();
+    } else {
+      alert('申请失败，请稍后重试');
+    }
+  } catch (error) {
+    console.error('Failed to join channel:', error);
+    const channel = channels.value.find(ch => ch.id === channelId);
+    if (channel) {
+      channel._joining = false;
+    }
+    
+    // 显示更具体的错误信息
+    if (error.response?.status === 404) {
+      alert('频道不存在');
+    } else if (error.response?.status === 400) {
+      alert(error.response.data?.error || '该频道不支持申请或您已申请过');
+    } else if (error.response?.status === 403) {
+      alert('无权申请加入该频道');
+    } else {
+      alert('申请失败：' + (error.response?.data?.error || error.message || '未知错误'));
+    }
+  }
+};
+
+const formatDate = (dateString) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  });
+};
+
+const parseTags = (value) =>
+  String(value || '')
+    .split(',')
+    .map((tag) => tag.trim())
+    .filter((tag) => tag.length > 0);
+
+const handleWsMessage = async (message) => {
+  if (message.type === 'channel') {
+    if (message.action === 'create' || message.action === 'update') {
+      await loadChannels();
+    } else if (message.action === 'delete') {
+      channels.value = channels.value.filter(c => {
+        const channelId = String(c.id);
+        const dataId = String(message.data.id);
+        return channelId !== dataId;
+      });
+    }
+  }
+};
+
+onMounted(async () => {
+  await loadChannels();
+
+  const setupWebSocketListeners = () => {
+    if (localStorage.getItem('userId')) {
+      wsClient.on('channel_create', handleWsMessage);
+      wsClient.on('channel_update', handleWsMessage);
+      wsClient.on('channel_delete', handleWsMessage);
+    }
+  };
+
+  setupWebSocketListeners();
+  wsClient.on('connected', setupWebSocketListeners);
+});
+
+onBeforeUnmount(() => {
+  wsClient.off('channel_create', handleWsMessage);
+  wsClient.off('channel_update', handleWsMessage);
+  wsClient.off('channel_delete', handleWsMessage);
+  wsClient.off('connected', () => {});
+});
+</script>

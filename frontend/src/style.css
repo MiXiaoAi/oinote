@@ -1,0 +1,276 @@
+@import "tailwindcss";
+@plugin "daisyui";
+
+@theme {
+    --color-primary: var(--primary);
+    --color-primary-content: var(--primary-content);
+}
+
+/* Light Theme (Grayscale) */
+:root:not([data-theme]),
+:root[data-theme="light"],
+html[data-theme="light"],
+[data-theme="light"] {
+    color-scheme: light;
+    --primary: #282828;
+    --primary-content: #ffffff;
+
+    /* DaisyUI Variables (OKLCH) */
+    --p: 0.25 0 0;   /* Primary: Dark Gray */
+    --pc: 1 0 0;     /* Primary Content: White */
+    
+    --s: 0.4 0 0;    /* Secondary: Gray */
+    --sc: 1 0 0;
+    
+    --a: 0.6 0 0;    /* Accent: Light Gray */
+    --ac: 0 0 0;
+    
+    --n: 0.15 0 0;   /* Neutral: Very Dark Gray */
+    --nc: 1 0 0;
+    
+    --b1: 1 0 0;     /* Base-100: White */
+    --b2: 0.96 0 0;  /* Base-200: Gray-50 */
+    --b3: 0.92 0 0;  /* Base-300: Gray-200 */
+    --bc: 0.2 0 0;   /* Base Content: Dark Gray */
+    
+    --in: 0.7 0.1 200; /* Info: keep standard or grayscale? make it grayscale */
+    --su: 0.6 0.1 150; /* Success: Green */
+    --wa: 0.8 0.1 80;  /* Warning: Yellow */
+    --er: 0.6 0.1 30;  /* Error: Red */
+}
+
+/* Dark Theme (Grayscale) - 改进对比度 */
+:root[data-theme="dark"],
+html[data-theme="dark"],
+[data-theme="dark"] {
+    color-scheme: dark;
+    --primary: #f5f5f5;
+    --primary-content: #171717;
+
+    /* DaisyUI Variables (OKLCH) - 提高对比度 */
+    --p: 0.95 0 0;   /* Primary: Almost White */
+    --pc: 0.08 0 0;  /* Primary Content: Very Dark */
+    
+    --s: 0.75 0 0;   /* Secondary: Light Gray */
+    --sc: 0.08 0 0;
+    
+    --a: 0.65 0 0;   /* Accent: Medium-Light Gray */
+    --ac: 0.1 0 0;
+    
+    --n: 0.92 0 0;   /* Neutral: Very Light Gray (Button background) */
+    --nc: 0.08 0 0;  /* Neutral Content: Very Dark (Button text) */
+    
+    --b1: 0.22 0 0;  /* Base-100: Background - 提高亮度 */
+    --b2: 0.18 0 0;  /* Base-200: Card背景 */
+    --b3: 0.35 0 0;  /* Base-300: Border - 更明显的边框 */
+    --bc: 0.95 0 0;  /* Base Content: Almost White - 提高文字对比度 */
+}
+
+[data-theme="dark"] .btn-neutral,
+html[data-theme="dark"] .btn-neutral,
+:root[data-theme="dark"] .btn-neutral {
+    background-color: #f5f5f5;
+    border-color: #f5f5f5;
+    color: #171717;
+}
+
+[data-theme="dark"] .btn-neutral.btn-outline,
+html[data-theme="dark"] .btn-neutral.btn-outline,
+:root[data-theme="dark"] .btn-neutral.btn-outline {
+    background-color: transparent;
+    border-color: #f5f5f5;
+    color: #f5f5f5;
+}
+
+/* 深色模式下的编辑器优化 */
+[data-theme="dark"] .tiptap p.is-editor-empty:first-child::before {
+    color: oklch(var(--bc) / 0.5);
+}
+
+[data-theme="dark"] .tiptap blockquote {
+    border-left-color: oklch(var(--p));
+    color: oklch(var(--bc) / 0.9);
+}
+
+html,
+body,
+#app {
+    height: 100vh;
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', sans-serif;
+    overflow: hidden;
+}
+
+/* Smooth theme transitions - only for background and border colors */
+body, div, span, button, .btn, [class*="bg-"], [class*="border-"] {
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Text color transitions with shorter duration */
+.text-base-content, [class*="text-"] {
+    transition: color 0.2s ease;
+}
+
+/* Discord-like scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #2e3338;
+    border-radius: 4px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+    background: #202225;
+}
+
+.tiptap {
+    outline: none;
+    height: 100%;
+}
+
+.tiptap p {
+    margin: 1em 0;
+}
+
+.tiptap p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    float: left;
+    color: hsl(var(--bc) / 0.4);
+    pointer-events: none;
+    height: 0;
+}
+
+.tiptap h1 {
+    font-size: 2.5em;
+    font-weight: bold;
+    margin: 0.5em 0;
+}
+
+.tiptap h2 {
+    font-size: 2em;
+    font-weight: bold;
+    margin: 0.5em 0;
+}
+
+.tiptap h3 {
+    font-size: 1.5em;
+    font-weight: bold;
+    margin: 0.5em 0;
+}
+
+.tiptap ul {
+    list-style-type: disc;
+    padding-left: 1.5em;
+}
+
+.tiptap ol {
+    list-style-type: decimal;
+    padding-left: 1.5em;
+}
+
+.tiptap blockquote {
+    border-left: 4px solid hsl(var(--p));
+    padding-left: 1em;
+    margin: 1em 0;
+    font-style: italic;
+    color: hsl(var(--bc) / 0.8);
+}
+
+.tiptap pre {
+    background: hsl(var(--n));
+    color: hsl(var(--nc));
+    padding: 1em;
+    border-radius: 0.5em;
+    overflow-x: auto;
+}
+
+.tiptap code {
+    background: hsl(var(--bc) / 0.1);
+    padding: 0.2em 0.4em;
+    border-radius: 0.25em;
+    font-family: 'Courier New', monospace;
+}
+
+.tiptap a {
+    color: hsl(var(--p));
+    text-decoration: underline;
+}
+
+.tiptap a:hover {
+    color: hsl(var(--pf));
+}
+
+/* Editor scrollbar */
+.tiptap::-webkit-scrollbar {
+    width: 6px;
+}
+
+.tiptap::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.tiptap::-webkit-scrollbar-thumb {
+    background: hsl(var(--bc) / 0.3);
+    border-radius: 3px;
+}
+
+.tiptap::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--bc) / 0.5);
+}
+
+.dark .tiptap::-webkit-scrollbar-thumb {
+    background: hsl(var(--bc) / 0.4);
+}
+
+.dark .tiptap::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--bc) / 0.6);
+}
+
+/* Table Styles - Light/Dark Mode Adaptable */
+.tiptap table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.75rem 0;
+    font-size: 0.95em;
+}
+
+.tiptap table td,
+.tiptap table th {
+    border: 1px solid oklch(var(--b3));
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    vertical-align: top;
+}
+
+.tiptap table th {
+    background-color: oklch(var(--b2));
+    color: oklch(var(--bc));
+    font-weight: 600;
+}
+
+.tiptap table td {
+    background-color: oklch(var(--b1));
+    color: oklch(var(--bc));
+}
+
+.tiptap table tr:hover td {
+    background-color: oklch(var(--b2) / 0.5);
+}
+
+/* Selected cell highlight */
+.tiptap table .selectedCell {
+    background-color: oklch(var(--p) / 0.1);
+    outline: 2px solid oklch(var(--p) / 0.3);
+}
+
+/* Table resize handle */
+.tiptap .resize-cursor {
+    cursor: col-resize;
+}
