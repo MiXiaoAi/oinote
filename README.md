@@ -86,6 +86,7 @@ pnpm dev
 oinote/
 ├── backend/                 # Go 后端
 │   ├── api/                # API 处理器
+│   │   ├── ai.go           # AI 功能 API
 │   │   ├── auth.go         # 认证相关 API
 │   │   ├── channel.go      # 频道相关 API
 │   │   ├── channels.go     # 频道列表 API
@@ -103,10 +104,17 @@ oinote/
 │   │       ├── notes/      # 笔记附件
 │   │       └── others/     # 其他文件
 │   ├── internal/           # 内部模块
+│   │   ├── collab/         # 协同编辑模块
+│   │   │   ├── collab_handler.go  # WebSocket 处理器
+│   │   │   └── yjs_server.go      # Yjs 服务器实现
 │   │   ├── middleware/     # 中间件
+│   │   │   └── auth.go     # 认证中间件
 │   │   ├── models/         # 数据模型
+│   │   │   └── schema.go   # 数据库模型定义
 │   │   ├── utils/          # 工具函数
+│   │   │   └── jwt.go      # JWT 工具
 │   │   └── websocket/      # WebSocket
+│   │       └── hub.go      # WebSocket 消息中心
 │   ├── main.go             # 应用入口
 │   ├── go.mod              # Go 模块配置
 │   └── go.sum              # Go 依赖锁定
@@ -114,14 +122,37 @@ oinote/
 ├── frontend/               # Vue 3 前端
 │   ├── src/
 │   │   ├── api/            # API 调用
+│   │   │   └── axios.js    # Axios 配置
 │   │   ├── assets/         # 静态资源
 │   │   ├── components/     # Vue 组件
+│   │   │   ├── ManageModal.vue    # 管理模态框
+│   │   │   ├── MediaPlayer.vue    # 媒体播放器
+│   │   │   ├── MobileDrawer.vue   # 移动端抽屉
+│   │   │   └── Sidebar.vue        # 侧边栏
 │   │   ├── data/           # 数据文件
+│   │   │   └── quotes.txt  # 引用文本
 │   │   ├── layouts/        # 布局组件
+│   │   │   └── MainLayout.vue     # 主布局
 │   │   ├── router/         # 路由配置
+│   │   │   └── index.js    # 路由定义
 │   │   ├── stores/         # Pinia 状态管理
+│   │   │   ├── auth.js     # 认证状态
+│   │   │   └── theme.js    # 主题状态
 │   │   ├── utils/          # 工具函数
+│   │   │   ├── eventBus.js     # 事件总线
+│   │   │   ├── urlHelper.js    # URL 辅助函数
+│   │   │   ├── websocket.js    # WebSocket 客户端
+│   │   │   └── yjs-collab.js   # Yjs 协同编辑客户端
 │   │   ├── views/          # 页面视图
+│   │   │   ├── Auth/           # 认证页面
+│   │   │   │   ├── Login.vue   # 登录页
+│   │   │   │   └── Register.vue # 注册页
+│   │   │   ├── Approvals.vue   # 审批页面
+│   │   │   ├── ChannelsList.vue # 频道列表
+│   │   │   ├── ChannelView.vue  # 频道视图
+│   │   │   ├── Home.vue         # 首页
+│   │   │   ├── NoteEditor.vue   # 笔记编辑器（含协同编辑）
+│   │   │   └── NotesList.vue    # 笔记列表
 │   │   ├── App.vue         # 根组件
 │   │   ├── main.js         # 应用入口
 │   │   └── style.css       # 全局样式
