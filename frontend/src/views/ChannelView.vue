@@ -1,10 +1,10 @@
 <template>
   <div class="h-full flex">
-    <div class="flex-1 flex flex-col px-6 py-4">
+    <div class="flex-1 flex flex-col">
       <div class="flex-1 flex min-h-0">
-        <div class="flex-1 flex flex-col gap-4">
+        <div class="flex-1 flex flex-col">
           <div v-if="channelViewMode === 'chat'"
-            class="card bg-base-100 border border-base-300 p-3 flex flex-col flex-1 min-h-0 chat-card relative"
+            class="flex flex-col flex-1 min-h-0 chat-card relative p-3"
             :class="{ 'dragging': isDragging }"
             @dragover.prevent="handleDragOver"
             @dragleave.prevent="handleDragLeave"
@@ -118,7 +118,7 @@
               </template>
               </div>
             </div>
-            <div class="pt-2 border-t border-base-300 mt-2 space-y-2">
+            <div class="pt-2 border-t border-base-300 space-y-2">
               <template v-if="authStore.isAuthenticated">
                 <input
                   v-model="newMessage"
@@ -167,7 +167,7 @@
             </div>
           </div>
 
-          <div v-else class="card bg-base-100 border border-base-300 p-3 flex flex-col flex-1 min-h-0">
+          <div v-else class="flex flex-col flex-1 min-h-0 p-3">
             <div class="flex items-center justify-between mb-3 pb-2 border-b border-base-300">
               <template v-if="authStore.isAuthenticated">
                 <button
@@ -226,7 +226,7 @@
         </div>
       </div>
 
-      <div v-if="showCreateNote" class="modal modal-open">
+      <div v-if="showCreateNote" class="modal modal-open" @click.self="closeNoteModal">
         <div class="modal-box">
           <h3 class="font-bold text-lg text-base-content">新建频道笔记</h3>
           <div class="space-y-3">
@@ -286,7 +286,7 @@
         </div>
       </div>
 
-      <div v-if="showInvite" class="modal modal-open">
+      <div v-if="showInvite" class="modal modal-open" @click.self="showInvite = false">
         <div class="modal-box">
           <h3 class="font-bold text-lg text-base-content">邀请成员</h3>
           <input v-model="inviteUsername" type="text" placeholder="输入用户名" class="input input-bordered w-full mt-4" />
@@ -297,7 +297,7 @@
         </div>
       </div>
 
-      <div v-if="showFilesModal" class="modal modal-open">
+      <div v-if="showFilesModal" class="modal modal-open" @click.self="showFilesModal = false">
         <div class="modal-box">
           <h3 class="font-bold text-lg text-base-content mb-2">频道文件</h3>
           <div class="space-y-3 text-sm max-h-80 overflow-y-auto">
@@ -418,7 +418,8 @@
     <!-- 消息右键菜单 -->
     <div v-if="showMessageContextMenu"
          class="fixed z-50 bg-base-100 shadow-xl rounded-lg border border-base-300 py-1 min-w-[180px] text-sm"
-         :style="{ top: `${messageContextMenuY}px`, left: `${messageContextMenuX}px` }">
+         :style="{ top: `${messageContextMenuY}px`, left: `${messageContextMenuX}px` }"
+         @click.stop>
 
       <div v-if="canDeleteMessage(selectedMessage)" class="px-3 py-1.5 text-xs font-bold text-base-content/50 uppercase tracking-wider">消息操作</div>
 
@@ -447,7 +448,8 @@
     <!-- 笔记右键菜单 -->
     <div v-if="showNoteContextMenu"
          class="fixed z-50 bg-base-100 shadow-xl rounded-lg border border-base-300 py-1 min-w-[180px] text-sm"
-         :style="{ top: `${noteContextMenuY}px`, left: `${noteContextMenuX}px` }">
+         :style="{ top: `${noteContextMenuY}px`, left: `${noteContextMenuX}px` }"
+         @click.stop>
 
       <div class="px-3 py-1.5 text-xs font-bold text-base-content/50 uppercase tracking-wider">笔记操作</div>
 
@@ -497,25 +499,36 @@
           <div class="space-y-2">
             <h5 class="text-sm font-bold text-base-content/70 mb-2">操作</h5>
 
-            <button
-              v-if="canManageMember(selectedMember)"
-              @click="changeMemberRole"
-              class="w-full btn btn-sm btn-ghost justify-start"
-            >
-              更改角色
-            </button>
+            <div v-if="canManageMember(selectedMember)" class="dropdown dropdown-top w-full">
+              <div tabindex="0" role="button" class="w-full btn btn-sm justify-start btn-warning">
+                更改角色
+                <ChevronDown class="w-4 h-4 ml-auto" />
+              </div>
+              <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-full">
+                <li>
+                  <a @click="changeMemberRoleTo('admin')" :class="{ 'active': selectedMember?.role === 'admin' }">
+                    管理员
+                  </a>
+                </li>
+                <li>
+                  <a @click="changeMemberRoleTo('member')" :class="{ 'active': selectedMember?.role === 'member' }">
+                    成员
+                  </a>
+                </li>
+              </ul>
+            </div>
 
             <button
               v-if="canRemoveMember(selectedMember)"
               @click="removeMember"
-              class="w-full btn btn-sm btn-error text-error-content justify-start"
+              class="w-full btn btn-sm btn-error text-error-content justify-start text-white"
             >
               移出频道
             </button>
 
             <button
               v-if="!canManageMember(selectedMember) && !canRemoveMember(selectedMember)"
-              class="w-full btn btn-sm btn-ghost justify-start opacity-50"
+              class="w-full btn btn-sm btn-ghost justify-start opacity-50 text-white"
               disabled
             >
               无操作权限
@@ -579,7 +592,7 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch, computed, inject } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { Paperclip, FileText, Plus, UploadCloud, Music, File } from 'lucide-vue-next';
+import { Paperclip, FileText, Plus, UploadCloud, Music, File, ChevronDown } from 'lucide-vue-next';
 import { useAuthStore } from '../stores/auth';
 import api from '../api/axios';
 import eventBus from '../utils/eventBus';
@@ -1338,10 +1351,11 @@ const canRemoveMember = (member) => {
   return false;
 };
 
-const changeMemberRole = async () => {
+const changeMemberRoleTo = async (newRole) => {
   if (!selectedMember.value) return;
-
-  const newRole = selectedMember.value.role === 'member' ? 'admin' : 'member';
+  
+  // 如果角色没有变化，不执行任何操作
+  if (selectedMember.value.role === newRole) return;
 
   try {
     await api.put(`/channels/${route.params.id}/members/${selectedMember.value.user_id}`, {
@@ -1550,8 +1564,34 @@ watch(
 
 /* 拖放状态样式 */
 .chat-card.dragging {
-  border-color: var(--fallback-p, oklch(var(--p)));
   background-color: oklch(var(--b3));
   transition: all 0.2s ease;
+}
+
+/* 滑动过渡动画 */
+.slide-right-enter-active,
+.slide-right-leave-active {
+  transition: transform 0.2s ease;
+}
+
+.slide-right-enter-from {
+  transform: translateX(100%);
+}
+
+.slide-right-leave-to {
+  transform: translateX(100%);
+}
+
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: transform 0.2s ease;
+}
+
+.slide-up-enter-from {
+  transform: translateY(100%);
+}
+
+.slide-up-leave-to {
+  transform: translateY(100%);
 }
 </style>

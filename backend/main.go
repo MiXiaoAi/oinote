@@ -130,6 +130,7 @@ func main() {
 	protected.Delete("/channels/:id/messages/:messageId", channelHandler.DeleteChannelMessage)
 	protected.Put("/channels/:id/messages/:messageId/highlight", channelHandler.HighlightMessage)
 	protected.Post("/channels/invite", channelHandler.InviteUser)
+	protected.Put("/channels/:id/members/:userId", channelHandler.UpdateMemberRole)
 	protected.Delete("/channels/:id/members/:userId", channelHandler.RemoveMember)
 	protected.Post("/channels/:id/join", channelHandler.JoinChannelRequest)
 	protected.Post("/channels/approvals", channelHandler.HandleMemberStatus)

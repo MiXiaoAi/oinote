@@ -38,8 +38,8 @@ go run main.go
 #### 3. 启动前端
 ```bash
 cd frontend
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 前端服务将在 `http://localhost:5173` 启动
 

@@ -10,12 +10,26 @@
         :class="{ 'cursor-default': isReadonly }"
       />
       <template v-if="canEdit">
-        <button @click="summarizeNote" class="btn btn-neutral" :disabled="summarizing">
-          {{ summarizing ? '总结中...' : 'AI总结' }}
-        </button>
-        <button @click="polishNote" class="btn btn-neutral" :disabled="polishing">
-          {{ polishing ? '润色中...' : 'AI润色' }}
-        </button>
+        <div class="dropdown dropdown-end">
+          <button tabindex="0" class="btn btn-neutral" :disabled="summarizing || polishing">
+            <Sparkles class="w-4 h-4 mr-2" />
+            AI 功能
+          </button>
+          <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-40">
+            <li>
+              <a @click="summarizeNote" :class="{ 'opacity-50': summarizing }">
+                <FileText class="w-4 h-4" />
+                {{ summarizing ? '总结中...' : 'AI总结' }}
+              </a>
+            </li>
+            <li>
+              <a @click="polishNote" :class="{ 'opacity-50': polishing }">
+                <Wand2 class="w-4 h-4" />
+                {{ polishing ? '润色中...' : 'AI润色' }}
+              </a>
+            </li>
+          </ul>
+        </div>
         <button @click="saveNote" class="btn btn-neutral" :disabled="saving">
           {{ saving ? '保存中...' : '保存' }}
         </button>
@@ -256,32 +270,33 @@
     <!-- Context Menu -->
     <div v-if="showContextMenu && canEdit" 
          class="fixed z-50 bg-base-100 shadow-xl rounded-lg border border-base-200 py-1 min-w-[180px] text-sm"
-         :style="{ top: `${contextMenuY}px`, left: `${contextMenuX}px` }">
+         :style="{ top: `${contextMenuY}px`, left: `${contextMenuX}px` }"
+         @click.stop>
       
       <!-- Table Menu -->
       <template v-if="contextMenuType === 'table'">
         <div class="px-3 py-1.5 text-xs font-bold text-base-content/50 uppercase tracking-wider">表格操作</div>
-        <button class="w-full text-left px-4 py-2 hover:bg-base-200 flex items-center gap-2" @click="editor.chain().focus().addColumnBefore().run()">
+        <button class="w-full text-left px-4 py-2 hover:bg-base-200 flex items-center gap-2" @click="editor.chain().focus().addColumnBefore().run(); closeContextMenu()">
           <ArrowLeftToLine class="w-4 h-4" /> 前插列
         </button>
-        <button class="w-full text-left px-4 py-2 hover:bg-base-200 flex items-center gap-2" @click="editor.chain().focus().addColumnAfter().run()">
+        <button class="w-full text-left px-4 py-2 hover:bg-base-200 flex items-center gap-2" @click="editor.chain().focus().addColumnAfter().run(); closeContextMenu()">
           <ArrowRightToLine class="w-4 h-4" /> 后插列
         </button>
-        <button class="w-full text-left px-4 py-2 hover:bg-base-200 flex items-center gap-2" @click="editor.chain().focus().addRowBefore().run()">
+        <button class="w-full text-left px-4 py-2 hover:bg-base-200 flex items-center gap-2" @click="editor.chain().focus().addRowBefore().run(); closeContextMenu()">
           <ArrowUpToLine class="w-4 h-4" /> 前插行
         </button>
-        <button class="w-full text-left px-4 py-2 hover:bg-base-200 flex items-center gap-2" @click="editor.chain().focus().addRowAfter().run()">
+        <button class="w-full text-left px-4 py-2 hover:bg-base-200 flex items-center gap-2" @click="editor.chain().focus().addRowAfter().run(); closeContextMenu()">
           <ArrowDownToLine class="w-4 h-4" /> 后插行
         </button>
         <div class="divider my-0"></div>
-        <button class="w-full text-left px-4 py-2 hover:bg-base-200 flex items-center gap-2" @click="editor.chain().focus().mergeCells().run()">
+        <button class="w-full text-left px-4 py-2 hover:bg-base-200 flex items-center gap-2" @click="editor.chain().focus().mergeCells().run(); closeContextMenu()">
           <Merge class="w-4 h-4" /> 合并单元格
         </button>
-        <button class="w-full text-left px-4 py-2 hover:bg-base-200 flex items-center gap-2" @click="editor.chain().focus().splitCell().run()">
+        <button class="w-full text-left px-4 py-2 hover:bg-base-200 flex items-center gap-2" @click="editor.chain().focus().splitCell().run(); closeContextMenu()">
           <Split class="w-4 h-4" /> 拆分单元格
         </button>
         <div class="divider my-0"></div>
-        <button class="w-full text-left px-4 py-2 hover:bg-base-200 flex items-center gap-2 text-base-content" @click="editor.chain().focus().deleteTable().run()">
+        <button class="w-full text-left px-4 py-2 hover:bg-base-200 flex items-center gap-2 text-base-content" @click="editor.chain().focus().deleteTable().run(); closeContextMenu()">
           <Trash2 class="w-4 h-4" /> 删除表格
         </button>
       </template>
@@ -299,32 +314,32 @@
 
       <!-- Selection Menu -->
       <template v-else-if="contextMenuType === 'selection'">
-        <button class="w-full text-left px-4 py-2 hover:bg-base-200 flex items-center gap-2" @click="editor.chain().focus().toggleBold().run()">
+        <button class="w-full text-left px-4 py-2 hover:bg-base-200 flex items-center gap-2" @click="editor.chain().focus().toggleBold().run(); closeContextMenu()">
           <Bold class="w-4 h-4" /> 粗体
         </button>
-        <button class="w-full text-left px-4 py-2 hover:bg-base-200 flex items-center gap-2" @click="editor.chain().focus().toggleItalic().run()">
+        <button class="w-full text-left px-4 py-2 hover:bg-base-200 flex items-center gap-2" @click="editor.chain().focus().toggleItalic().run(); closeContextMenu()">
           <Italic class="w-4 h-4" /> 斜体
         </button>
-        <button class="w-full text-left px-4 py-2 hover:bg-base-200 flex items-center gap-2" @click="editor.chain().focus().toggleUnderline().run()">
+        <button class="w-full text-left px-4 py-2 hover:bg-base-200 flex items-center gap-2" @click="editor.chain().focus().toggleUnderline().run(); closeContextMenu()">
           <UnderlineIcon class="w-4 h-4" /> 下划线
         </button>
         <div class="divider my-0"></div>
         <!-- Note: Copy/Cut/Paste usually require browser permissions or native API access which might not work directly in all contexts, but basic execCommand might work -->
-        <button class="w-full text-left px-4 py-2 hover:bg-base-200 flex items-center gap-2" @click="navigator.clipboard.writeText(editor.state.selection.content().content.textBetween(0, editor.state.selection.content().content.size, '\n'))">
+        <button class="w-full text-left px-4 py-2 hover:bg-base-200 flex items-center gap-2" @click="navigator.clipboard.writeText(editor.state.selection.content().content.textBetween(0, editor.state.selection.content().content.size, '\n')); closeContextMenu()">
            <ClipboardCopy class="w-4 h-4" /> 复制
         </button>
       </template>
 
       <!-- Default Menu -->
       <template v-else>
-        <button class="w-full text-left px-4 py-2 hover:bg-base-200 flex items-center gap-2" @click="editor.chain().focus().undo().run()" :disabled="!editor.can().undo()" :class="{'opacity-50': !editor.can().undo()}">
+        <button class="w-full text-left px-4 py-2 hover:bg-base-200 flex items-center gap-2" @click="editor.chain().focus().undo().run(); closeContextMenu()" :disabled="!editor.can().undo()" :class="{'opacity-50': !editor.can().undo()}">
           <Undo class="w-4 h-4" /> 撤销
         </button>
-        <button class="w-full text-left px-4 py-2 hover:bg-base-200 flex items-center gap-2" @click="editor.chain().focus().redo().run()" :disabled="!editor.can().redo()" :class="{'opacity-50': !editor.can().redo()}">
+        <button class="w-full text-left px-4 py-2 hover:bg-base-200 flex items-center gap-2" @click="editor.chain().focus().redo().run(); closeContextMenu()" :disabled="!editor.can().redo()" :class="{'opacity-50': !editor.can().redo()}">
           <Redo class="w-4 h-4" /> 重做
         </button>
         <div class="divider my-0"></div>
-        <button class="w-full text-left px-4 py-2 hover:bg-base-200 flex items-center gap-2" @click="editor.chain().focus().selectAll().run()">
+        <button class="w-full text-left px-4 py-2 hover:bg-base-200 flex items-center gap-2" @click="editor.chain().focus().selectAll().run(); closeContextMenu()">
           <Code2 class="w-4 h-4" /> 全选
         </button>
       </template>
@@ -410,7 +425,8 @@ import {
   ArrowLeftToLine, ArrowRightToLine, ArrowUpToLine, ArrowDownToLine,
   Trash2, Merge, Split, X,
   Clipboard, Scissors, ClipboardCopy,
-  Image as ImageIcon, Paperclip, Edit3, UploadCloud
+  Image as ImageIcon, Paperclip, Edit3, UploadCloud,
+  Sparkles, Wand2, FileText
 } from 'lucide-vue-next';
 import api from '../api/axios';
 import eventBus from '../utils/eventBus';
@@ -586,6 +602,8 @@ const closeContextMenu = () => {
 
 // Global click listener to close context menu
 onMounted(() => {
+  // Global click listener to close context menu
+  window.addEventListener('click', closeContextMenu);
   loadNote();
   eventBus.on('note-updated', handleExternalNoteUpdate);
 
@@ -1066,7 +1084,12 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  window.removeEventListener('click', closeContextMenu);
+  window.removeEventListener('dragover', (e) => e.preventDefault());
+  window.removeEventListener('drop', (e) => e.preventDefault());
+  window.removeEventListener('keydown', handleKeyboardShortcuts);
   eventBus.off('note-updated', handleExternalNoteUpdate);
+  editor.destroy();
 });
 </script>
 
@@ -1225,6 +1248,15 @@ onBeforeUnmount(() => {
   line-height: 1.25;
   margin-top: 1.5em;
   margin-bottom: 0.5em;
+}
+
+/* Ensure underline and strikethrough are visible */
+.ProseMirror u {
+  text-decoration: underline;
+}
+
+.ProseMirror s {
+  text-decoration: line-through;
 }
 
 .prose h1 {

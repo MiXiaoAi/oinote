@@ -502,6 +502,70 @@ func (h *ChannelHandler) RemoveMember(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "已移出成员"})
 }
 
+func (h *ChannelHandler) UpdateMemberRole(c *fiber.Ctx) error {
+	userId := c.Locals("userId").(uint)
+	channelId := c.Params("id")
+	targetUserIdStr := c.Params("userId")
+
+	targetUserId64, err := strconv.ParseUint(targetUserIdStr, 10, 64)
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "用户参数无效"})
+	}
+	targetUserId := uint(targetUserId64)
+
+	type UpdateRoleInput struct {
+		Role string `json:"role"`
+	}
+	var input UpdateRoleInput
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "输入数据无效"})
+	}
+
+	// 验证角色值
+	if input.Role != models.RoleOwner && input.Role != models.RoleAdmin && input.Role != models.RoleMember {
+		return c.Status(400).JSON(fiber.Map{"error": "无效的角色值"})
+	}
+
+	// 检查当前用户是否有权限（所有者或管理员）
+	var currentMember models.ChannelMember
+	if err := h.DB.Where("channel_id = ? AND user_id = ? AND status = ? AND (role = ? OR role = ?)",
+		channelId, userId, models.MemberStatusActive, models.RoleOwner, models.RoleAdmin).First(&currentMember).Error; err != nil {
+		return c.Status(403).JSON(fiber.Map{"error": "无权操作"})
+	}
+
+	// 管理员不能更改所有者的角色
+	if currentMember.Role == models.RoleAdmin {
+		var targetMember models.ChannelMember
+		if err := h.DB.Where("channel_id = ? AND user_id = ? AND status = ?",
+			channelId, targetUserId, models.MemberStatusActive).First(&targetMember).Error; err != nil {
+			return c.Status(404).JSON(fiber.Map{"error": "成员不存在"})
+		}
+		if targetMember.Role == models.RoleOwner {
+			return c.Status(403).JSON(fiber.Map{"error": "管理员不能更改所有者角色"})
+		}
+	}
+
+	// 不能更改自己的角色
+	if targetUserId == userId {
+		return c.Status(400).JSON(fiber.Map{"error": "不能更改自己的角色"})
+	}
+
+	// 更新成员角色
+	result := h.DB.Model(&models.ChannelMember{}).
+		Where("channel_id = ? AND user_id = ? AND status = ?", channelId, targetUserId, models.MemberStatusActive).
+		Update("role", input.Role)
+
+	if result.Error != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "更新角色失败"})
+	}
+
+	if result.RowsAffected == 0 {
+		return c.Status(404).JSON(fiber.Map{"error": "成员不存在"})
+	}
+
+	return c.JSON(fiber.Map{"message": "角色已更新"})
+}
+
 func (h *ChannelHandler) UpdateChannel(c *fiber.Ctx) error {
 	userId := c.Locals("userId").(uint)
 	channelId := c.Params("id")

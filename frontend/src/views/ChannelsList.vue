@@ -55,18 +55,25 @@
             </div>
             <div class="flex gap-2">
               <router-link
+                v-if="ch.is_member || !authStore.isAuthenticated"
                 :to="{ name: 'channel', params: { id: ch.id } }"
                 class="btn btn-sm btn-neutral flex-1"
               >
                 进入频道
               </router-link>
               <button
-                v-if="!authStore.isAuthenticated"
+                v-else-if="ch.is_pending"
                 disabled
                 class="btn btn-sm btn-ghost flex-1 opacity-50"
-                title="请先登录"
               >
-                需登录
+                待审核
+              </button>
+              <button
+                v-else-if="ch.is_invited"
+                @click="acceptInvitation(ch.id)"
+                class="btn btn-sm btn-primary flex-1"
+              >
+                接受邀请
               </button>
               <button
                 v-else-if="!ch.is_public"
@@ -77,17 +84,10 @@
                 不可申请
               </button>
               <button
-                v-else-if="isChannelMember(ch.id)"
-                disabled
-                class="btn btn-sm btn-ghost flex-1 opacity-50"
-              >
-                已申请
-              </button>
-              <button
                 v-else
                 @click="joinChannel(ch.id)"
                 :disabled="ch._joining"
-                class="btn btn-sm btn-ghost flex-1"
+                class="btn btn-sm btn-neutral flex-1"
               >
                 {{ ch._joining ? '申请中...' : '申请加入' }}
               </button>
@@ -116,7 +116,13 @@ const loadChannels = async () => {
   try {
     if (authStore.isAuthenticated) {
       const res = await api.get('/channels');
-      channels.value = res.data || [];
+      // 为用户已加入的频道添加is_member标记
+      channels.value = (res.data || []).map(ch => ({
+        ...ch,
+        is_member: true,
+        is_pending: false,
+        is_invited: false
+      }));
     } else {
       const res = await api.get('/public/channels');
       channels.value = res.data || [];
@@ -130,7 +136,8 @@ const loadChannels = async () => {
 };
 
 const isChannelMember = (channelId) => {
-  return false;
+  const channel = channels.value.find(ch => ch.id === channelId);
+  return channel && channel.is_member;
 };
 
 const joinChannel = async (channelId) => {
@@ -187,6 +194,22 @@ const joinChannel = async (channelId) => {
     } else {
       alert('申请失败：' + (error.response?.data?.error || error.message || '未知错误'));
     }
+  }
+};
+
+const acceptInvitation = async (channelId) => {
+  try {
+    // 查找邀请记录
+    const res = await api.get('/channels/approvals/pending');
+    const invitation = res.data.find(item => item.channel?.id === channelId && item.status === 'invited');
+    if (invitation) {
+      await api.post(`/channels/approvals/${invitation.id}/accept`);
+      alert('已成功加入频道');
+      await loadChannels();
+    }
+  } catch (error) {
+    console.error('Failed to accept invitation:', error);
+    alert(error.response?.data?.error || '接受邀请失败');
   }
 };
 

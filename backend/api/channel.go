@@ -327,6 +327,11 @@ func (h *ChannelHandler) HandleMemberStatus(c *fiber.Ctx) error {
 
 		// 发送欢迎消息到频道
 		go h.sendWelcomeMessage(memberRecord.ChannelID, memberRecord.UserID)
+		
+		// 广播频道更新事件，通知前端刷新成员状态
+		var channel models.Channel
+		h.DB.First(&channel, memberRecord.ChannelID)
+		h.Hub.BroadcastMessage("channel", "update", channel)
 
 		return c.JSON(fiber.Map{"message": "已加入频道"})
 	}
@@ -350,6 +355,11 @@ func (h *ChannelHandler) HandleMemberStatus(c *fiber.Ctx) error {
 
 		// 发送欢迎消息到频道
 		go h.sendWelcomeMessage(memberRecord.ChannelID, memberRecord.UserID)
+		
+		// 广播频道更新事件，通知前端刷新成员状态
+		var channel models.Channel
+		h.DB.First(&channel, memberRecord.ChannelID)
+		h.Hub.BroadcastMessage("channel", "update", channel)
 
 		return c.JSON(fiber.Map{"message": "已批准加入"})
 	}
@@ -365,6 +375,12 @@ func (h *ChannelHandler) HandleMemberStatus(c *fiber.Ctx) error {
 		}
 
 		h.DB.Delete(&memberRecord)
+		
+		// 广播频道更新事件，通知前端刷新成员状态
+		var channel models.Channel
+		h.DB.First(&channel, memberRecord.ChannelID)
+		h.Hub.BroadcastMessage("channel", "update", channel)
+		
 		return c.JSON(fiber.Map{"message": "已拒绝申请"})
 	}
 
@@ -517,6 +533,11 @@ func (h *ChannelHandler) AcceptInvitation(c *fiber.Ctx) error {
 
 	// 发送系统消息通知频道成员
 	h.sendJoinMessage(memberRecord.ChannelID, userID)
+	
+	// 广播频道更新事件，通知前端刷新成员状态
+	var channel models.Channel
+	h.DB.First(&channel, memberRecord.ChannelID)
+	h.Hub.BroadcastMessage("channel", "update", channel)
 
 	return c.JSON(fiber.Map{"message": "已接受邀请"})
 }

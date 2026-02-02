@@ -23,7 +23,7 @@
         </div>
       </div>
       <header class="h-12 border-b border-base-300 flex items-center px-4 justify-between shrink-0 relative z-10">
-        <div class="flex items-center space-x-2 min-w-0">
+        <div class="flex items-center space-x-2 min-w-0 w-1/4">
           <template v-if="isChannelRoute">
             <div v-if="currentChannelName" class="flex items-center gap-2">
               <Hash class="w-4 h-4" />
@@ -48,17 +48,17 @@
             <span class="font-bold text-base-content truncate">{{ currentDocName }}</span>
           </template>
         </div>
-        <div class="flex-1 flex justify-center" v-if="isChannelRoute">
+        <div class="absolute left-1/2 -translate-x-1/2" v-if="isChannelRoute">
           <div class="inline-flex bg-base-200 rounded-lg px-1 py-1 gap-1">
             <button
-              class="btn btn-xs rounded-md"
+              class="btn btn-xs rounded-md w-16"
               :class="channelViewMode === 'chat' ? 'btn-neutral' : 'btn-ghost'"
               @click="channelViewMode = 'chat'"
             >
               聊天
             </button>
             <button
-              class="btn btn-xs rounded-md"
+              class="btn btn-xs rounded-md w-16"
               :class="channelViewMode === 'notes' ? 'btn-neutral' : 'btn-ghost'"
               @click="channelViewMode = 'notes'"
             >
@@ -66,7 +66,7 @@
             </button>
           </div>
         </div>
-        <div class="flex items-center space-x-2">
+        <div class="flex items-center space-x-2 w-1/4 justify-end">
           <button
             v-if="isChannelRoute"
             class="btn btn-neutral btn-sm"
@@ -82,12 +82,12 @@
           </button>
         </div>
       </header>
-      <div class="flex-1 overflow-auto relative pb-16 lg:pb-0">
+      <div class="flex-1 overflow-auto relative pb-12 lg:pb-0">
         <router-view @create-channel="showCreateChannel = true" />
       </div>
     </main>
 
-    <!-- Mobile Bottom Sidebar -->
+    <!-- Mobile Bottom Navigation -->
     <div class="lg:hidden fixed bottom-0 left-0 right-0 bg-base-200 border-t border-base-300 z-50">
       <div class="flex items-center justify-around py-2">
         <!-- Home -->
@@ -130,7 +130,7 @@
           </div>
 
           <!-- User Menu -->
-          <div v-if="showUserMenu" class="absolute bottom-full right-0 mb-2 w-48 bg-base-100 border border-base-300 rounded-lg shadow-xl z-50 user-menu">
+          <div v-if="showUserMenu" class="absolute bottom-full right-0 mb-2 w-48 bg-base-100 border border-base-300 rounded-lg shadow-xl z-50 user-menu" @click.stop>
             <div class="p-3 border-b border-base-300">
               <p class="font-bold text-sm">{{ authStore.user?.nickname || authStore.user?.username }}</p>
               <p class="text-xs text-base-content/60">@{{ authStore.user?.username }}</p>
@@ -143,7 +143,7 @@
                 @click="showUserMenu = false"
               >
                 <Bell class="w-4 h-4" />
-                消息通知
+                通知
               </router-link>
               <button
                 v-if="authStore.isAuthenticated"
@@ -159,7 +159,7 @@
                 class="w-full text-left px-3 py-2 text-sm text-error hover:bg-error/10 rounded-lg flex items-center gap-2"
               >
                 <LogOut class="w-4 h-4" />
-                退出登录
+                退出
               </button>
               <button
                 v-else
@@ -247,7 +247,7 @@
     </MobileDrawer>
 
     <!-- Create Channel Modal -->
-    <dialog :open="showCreateChannel" class="modal modal-bottom sm:modal-middle">
+    <dialog :open="showCreateChannel" class="modal modal-bottom sm:modal-middle" @click="handleModalClick($event, 'showCreateChannel')">
       <div class="modal-box">
         <h3 class="font-bold text-lg">新建频道</h3>
         <div class="space-y-3">
@@ -318,7 +318,7 @@
     </dialog>
 
     <!-- Create Note Modal -->
-    <dialog :open="showCreateNote" class="modal modal-bottom sm:modal-middle">
+    <dialog :open="showCreateNote" class="modal modal-bottom sm:modal-middle" @click="handleModalClick($event, 'showCreateNote')">
       <div class="modal-box">
         <h3 class="font-bold text-lg">新建笔记</h3>
         <div class="space-y-3">
@@ -379,7 +379,7 @@
     </dialog>
 
     <!-- Search Modal -->
-    <dialog :open="showSearchModal" class="modal modal-bottom sm:modal-middle">
+    <dialog :open="showSearchModal" class="modal modal-bottom sm:modal-middle" @click="handleModalClick($event, 'showSearchModal')">
       <div class="modal-box max-w-2xl">
         <h3 class="font-bold text-lg mb-4">搜索</h3>
         <div class="form-control mb-4">
@@ -466,6 +466,68 @@
         </div>
       </div>
     </dialog>
+
+    <!-- Settings Modal -->
+    <dialog :open="showSettings" class="modal modal-bottom sm:modal-middle" @click="handleModalClick($event, 'showSettings')">
+      <div class="modal-box">
+        <h3 class="font-bold text-lg">个人设置</h3>
+        <div class="py-4 space-y-3">
+          <div>
+            <label class="label">
+              <span class="label-text">昵称</span>
+            </label>
+            <input v-model="settingsNickname" type="text" class="input input-bordered w-full" placeholder="输入昵称" />
+          </div>
+          <div>
+            <label class="label">
+              <span class="label-text">头像</span>
+            </label>
+            <div class="flex items-center gap-4">
+              <div class="avatar">
+                <div class="w-20 h-20 rounded-full bg-neutral text-neutral-content flex items-center justify-center overflow-hidden border-2 border-base-300">
+                  <img
+                    v-if="avatarPreviewUrl || authStore.user?.avatar"
+                    :src="avatarPreviewUrl || getFileUrl(authStore.user?.avatar)"
+                    alt="头像预览"
+                    class="w-full h-full object-cover"
+                  />
+                  <span v-else class="text-2xl font-bold">{{ avatarChar }}</span>
+                </div>
+              </div>
+              <div class="flex-1">
+                <input
+                  ref="avatarInputRef"
+                  type="file"
+                  accept="image/*"
+                  class="file-input file-input-bordered w-full"
+                  @change="handleAvatarSelected"
+                  :disabled="isUploadingAvatar"
+                />
+                <div v-if="isUploadingAvatar" class="mt-2">
+                  <div class="flex items-center justify-between text-xs mb-1">
+                    <span>上传中...</span>
+                    <span>{{ avatarUploadProgress }}%</span>
+                  </div>
+                  <progress class="progress progress-sm w-full" :value="avatarUploadProgress" max="100"></progress>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <label class="label">
+              <span class="label-text">个人简介</span>
+            </label>
+            <textarea v-model="settingsBio" class="textarea textarea-bordered w-full min-h-[96px]" placeholder="写点简介..."></textarea>
+          </div>
+        </div>
+        <div class="modal-action">
+          <button class="btn" @click="closeSettings" :disabled="savingSettings">取消</button>
+          <button class="btn btn-neutral" @click="saveSettings" :disabled="savingSettings">
+            {{ savingSettings ? '保存中...' : '保存' }}
+          </button>
+        </div>
+      </div>
+    </dialog>
   </div>
 </template>
 
@@ -522,6 +584,7 @@ const isUploadingAvatar = ref(false);
 const avatarUploadProgress = ref(0);
 const savingSettings = ref(false);
 const avatarInputRef = ref(null);
+const avatarPreviewUrl = ref(null);
 const autoRefreshInterval = ref(null);
 
 const channelViewMode = ref('chat');
@@ -697,10 +760,34 @@ const handleSearchResultClick = (item) => {
   }
 };
 
-const openSettings = () => {
-  // 跳转到审核页面
+const openSettings = async () => {
   showUserMenu.value = false;
+  if (!authStore.isAuthenticated) {
+    router.push('/login');
+    return;
+  }
+
+  try {
+    await authStore.refreshMe();
+  } catch (err) {
+    if (notification) notification.showNotification(err.response?.data?.error || '加载个人信息失败', 'error');
+  }
+
+  settingsNickname.value = authStore.user?.nickname || '';
+  settingsBio.value = authStore.user?.bio || '';
+  selectedAvatarFile.value = null;
+  avatarPreviewUrl.value = null;
+  if (avatarInputRef.value) avatarInputRef.value.value = '';
   showSettings.value = true;
+};
+
+const handleModalClick = (event, modalRefName) => {
+  if (event.target.tagName === 'DIALOG') {
+    if (modalRefName === 'showCreateChannel') showCreateChannel.value = false;
+    else if (modalRefName === 'showCreateNote') showCreateNote.value = false;
+    else if (modalRefName === 'showSearchModal') showSearchModal.value = false;
+    else if (modalRefName === 'showSettings') showSettings.value = false;
+  }
 };
 
 const goToHome = () => {
@@ -730,6 +817,77 @@ const logout = () => {
   showUserMenu.value = false;
   authStore.logout();
   router.push('/');
+};
+
+const closeSettings = () => {
+  showSettings.value = false;
+  // 清理预览 URL
+  if (avatarPreviewUrl.value) {
+    URL.revokeObjectURL(avatarPreviewUrl.value);
+    avatarPreviewUrl.value = null;
+  }
+};
+
+const handleAvatarSelected = (e) => {
+  const file = e.target?.files?.[0];
+  selectedAvatarFile.value = file || null;
+  // 创建预览 URL
+  if (file) {
+    avatarPreviewUrl.value = URL.createObjectURL(file);
+  } else {
+    avatarPreviewUrl.value = null;
+  }
+};
+
+const uploadAvatar = async (file) => {
+  const form = new FormData();
+  form.append('file', file);
+  form.append('type', 'avatar');
+  isUploadingAvatar.value = true;
+  avatarUploadProgress.value = 0;
+
+  try {
+    const res = await api.post('/upload', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: (progressEvent) => {
+        if (progressEvent.total) {
+          avatarUploadProgress.value = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+        }
+      },
+    });
+    return res.data?.file_path;
+  } finally {
+    isUploadingAvatar.value = false;
+    avatarUploadProgress.value = 0;
+  }
+};
+
+const saveSettings = async () => {
+  if (!authStore.isAuthenticated) return;
+  savingSettings.value = true;
+  try {
+    let avatarPath = authStore.user?.avatar || '';
+    if (selectedAvatarFile.value) {
+      avatarPath = await uploadAvatar(selectedAvatarFile.value);
+    }
+    const payload = {
+      nickname: settingsNickname.value,
+      avatar: avatarPath,
+      bio: settingsBio.value,
+    };
+    await authStore.updateMe(payload);
+    if (notification) notification.showNotification('保存成功', 'success');
+    // 清理预览 URL
+    if (avatarPreviewUrl.value) {
+      URL.revokeObjectURL(avatarPreviewUrl.value);
+      avatarPreviewUrl.value = null;
+    }
+    showSettings.value = false;
+  } catch (err) {
+    if (notification) notification.showNotification(err.response?.data?.error || '保存失败', 'error');
+  } finally {
+    savingSettings.value = false;
+  }
 };
 
 const goToLogin = () => {
