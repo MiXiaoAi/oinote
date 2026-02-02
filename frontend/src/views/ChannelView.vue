@@ -178,11 +178,6 @@
                   新建笔记
                 </button>
               </template>
-              <div v-else class="flex items-center gap-2">
-                <span class="text-xs text-base-content/60">需要</span>
-                <router-link to="/login" class="btn btn-xs btn-ghost text-primary">登录</router-link>
-                <span class="text-xs text-base-content/60">创建笔记</span>
-              </div>
             </div>
             <div class="flex-1 overflow-y-auto space-y-2">
               <div v-if="initialLoading" class="flex flex-col items-center justify-center h-40 text-xs text-base-content/30">

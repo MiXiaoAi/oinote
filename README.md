@@ -6,10 +6,12 @@
 
 - **现代化技术栈** - Vue 3 + Go Fiber + SQLite
 - **富文本编辑** - 基于 TipTap 的强大编辑器
-- **实时协作** - 频道聊天、消息管理、权限控制
+- **实时协作** - 频道笔记多人协同编辑（基于 Yjs）
+- **频道系统** - 频道聊天、消息管理、权限控制
 - **响应式设计** - 完美适配桌面和移动设备
 - **媒体支持** - 优化的视频播放和文件处理
 - **访客模式** - 公开内容访问，友好的用户体验
+- **AI 功能** - AI 总结和润色笔记内容
 
 ## 快速开始
 
@@ -366,21 +368,138 @@ oinote/
 - **权限控制** - 基于角色的访问控制
 - **CORS配置** - 允许跨域请求
 
-## 性能指标
+### ⚠️ 安全注意事项
 
-| 指标 | 数值 | 说明 |
-|------|------|------|
-| 页面加载时间 | < 2s | 首屏渲染时间 |
-| API响应时间 | < 500ms | 平均接口响应 |
-| 并发用户数 | 100+ | 同时在线用户 |
-| 文件上传速度 | > 10MB/s | 大文件上传速度 |
+**本项目目前处于开发阶段，在生产环境部署前请务必注意以下安全问题：**
+
+1. **JWT 密钥管理**
+   - 当前 JWT 密钥硬编码在代码中（`backend/internal/middleware/auth.go` 和 `backend/internal/utils/jwt.go`）
+   - **生产环境必须**：使用环境变量存储密钥，并使用强随机密钥
+   ```bash
+   # 生成强随机密钥示例
+   openssl rand -base64 32
+   ```
+
+2. **CORS 配置**
+   - 当前允许所有域名访问（`AllowOrigins: "*"`）
+   - **生产环境必须**：限制为特定的前端域名
+   ```go
+   AllowOrigins: "https://yourdomain.com",
+   ```
+
+3. **数据库安全**
+   - 当前使用 SQLite，适合开发和小规模部署
+   - **生产环境建议**：迁移到 PostgreSQL 或 MySQL
+   - 定期备份数据库文件
+
+4. **文件上传**
+   - 当前文件大小限制为 2GB
+   - **建议**：根据实际需求调整限制
+   - 实现文件类型白名单验证
+   - 定期清理未使用的文件
+
+5. **速率限制**
+   - 当前未实现 API 速率限制
+   - **生产环境建议**：添加速率限制中间件防止滥用
 
 ## 常见问题
 
-1. **跨域问题**：后端已配置 CORS 允许所有来源
+1. **跨域问题**：后端已配置 CORS 允许所有来源（生产环境需修改）
 2. **文件上传失败**：检查后端 BodyLimit 配置和目录权限
-3. **WebSocket 断连**：检查连接 ID 和用户 ID 传递
-4. **数据库迁移失败**：删除 `oinote.db` 重新运行后端
+3. **WebSocket 断连**：检查连接 ID 和用户 ID 传递，网络不稳定时会自动重连
+4. **数据库迁移失败**：删除 `backend/data/oinote.db` 重新运行后端
+5. **协同编辑不同步**：检查 WebSocket 连接状态，刷新页面重新连接
+6. **默认管理员账号**：首次运行会自动创建 `admin/admin` 账号
+
+## 部署指南
+
+### 开发环境部署
+参考上面的"快速开始"部分
+
+### 生产环境部署
+
+#### 1. 环境变量配置
+创建 `.env` 文件（未来版本将支持）：
+```bash
+# JWT 密钥（必须修改）
+JWT_SECRET=your-super-secret-key-change-me
+
+# 服务器配置
+PORT=3000
+FRONTEND_URL=https://yourdomain.com
+
+# 数据库配置（可选，默认使用 SQLite）
+DB_TYPE=sqlite
+DB_PATH=./data/oinote.db
+```
+
+#### 2. 前端构建
+```bash
+cd frontend
+pnpm install
+pnpm build
+```
+
+#### 3. 后端编译
+```bash
+cd backend
+go build -o oinote main.go
+```
+
+#### 4. 使用 Docker（推荐）
+```dockerfile
+# 示例 Dockerfile（需要自行创建）
+FROM golang:1.25-alpine AS backend-builder
+WORKDIR /app
+COPY backend/ .
+RUN go build -o oinote main.go
+
+FROM node:18-alpine AS frontend-builder
+WORKDIR /app
+COPY frontend/ .
+RUN npm install -g pnpm && pnpm install && pnpm build
+
+FROM alpine:latest
+WORKDIR /app
+COPY --from=backend-builder /app/oinote .
+COPY --from=frontend-builder /app/dist ./frontend/dist
+EXPOSE 3000
+CMD ["./oinote"]
+```
+
+#### 5. 反向代理配置（Nginx）
+```nginx
+server {
+    listen 80;
+    server_name yourdomain.com;
+
+    location / {
+        proxy_pass http://localhost:5173;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    location /api {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    location /ws {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_set_header Host $host;
+    }
+}
+```
 
 ## 贡献指南
 
@@ -398,9 +517,35 @@ oinote/
 - 提交前运行测试
 - 保持代码简洁清晰
 
+### 报告问题
+- 使用 GitHub Issues 报告 bug
+- 提供详细的复现步骤
+- 包含错误日志和截图
+- 说明运行环境（操作系统、浏览器等）
+
+## 版本历史
+
+### v1.1.0 (2026-02-02)
+- ✨ 新增频道笔记多人协同编辑功能（基于 Yjs）
+- ✨ 新增 AI 总结和润色功能
+- ✨ 新增全局搜索功能（笔记和频道）
+- 🎨 优化移动端工具栏布局
+- 🐛 修复访客搜索功能
+- 🐛 修复移动端输入法冲突问题
+- 📝 更新项目文档
+
+### v1.0.0 (2024)
+- 🎉 初始版本发布
+- ✨ 基础笔记编辑功能
+- ✨ 频道聊天功能
+- ✨ 用户认证和权限管理
+- ✨ 文件上传和媒体播放
+
 ## 许可证
 
 本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情
+
+**免责声明**：本项目仅供学习和研究使用。在生产环境使用前，请务必进行充分的安全审计和性能测试。作者不对使用本项目造成的任何损失负责。
 
 ## 致谢
 
@@ -410,12 +555,24 @@ oinote/
 - [TipTap](https://tiptap.dev/) - 富文本编辑器
 - [DaisyUI](https://daisyui.com/) - UI组件库
 - [Lucide](https://lucide.dev/) - 图标库
+- [Yjs](https://github.com/yjs/yjs) - CRDT 协同编辑框架
+- [y-crdt (Go)](https://github.com/skyterra/y-crdt) - Yjs 的 Go 实现
 
 ## 联系方式
 
 - **项目地址**: https://github.com/MiXiaoAi/oinote
 - **作者**: MiXiaoAi
+- **问题反馈**: [GitHub Issues](https://github.com/MiXiaoAi/oinote/issues)
+
+## 项目状态
+
+![GitHub stars](https://img.shields.io/github/stars/MiXiaoAi/oinote?style=social)
+![GitHub forks](https://img.shields.io/github/forks/MiXiaoAi/oinote?style=social)
+![GitHub issues](https://img.shields.io/github/issues/MiXiaoAi/oinote)
+![GitHub license](https://img.shields.io/github/license/MiXiaoAi/oinote)
+
+**开发状态**: 🚧 活跃开发中
 
 ---
 
-如果这个项目对你有帮助，请给它一个星标！
+如果这个项目对你有帮助，请给它一个星标 ⭐！

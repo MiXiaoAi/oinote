@@ -9,6 +9,7 @@ import (
 
 	handlers "github.com/MiXiaoAi/oinote/backend/api"
 	ws "github.com/MiXiaoAi/oinote/backend/internal/websocket"
+	"github.com/MiXiaoAi/oinote/backend/internal/collab"
 	"github.com/MiXiaoAi/oinote/backend/internal/middleware"
 	"github.com/MiXiaoAi/oinote/backend/config"
 	"github.com/gofiber/fiber/v2"
@@ -28,6 +29,9 @@ func main() {
 	// 初始化 WebSocket Hub
 	wsHub := ws.NewHub()
 	go wsHub.Run()
+
+	// 初始化协同编辑服务器
+	yjsServer := collab.NewYjsServer()
 
 	// 初始化 Fiber
 	app := fiber.New(fiber.Config{
@@ -96,6 +100,11 @@ func main() {
 		// 启动读写管道
 		go client.WritePump()
 		client.ReadPump(wsHub)
+	}))
+
+	// 协同编辑 WebSocket 路由
+	app.Get("/ws/collab", websocket.New(func(c *websocket.Conn) {
+		collab.HandleCollabWebSocket(c, yjsServer)
 	}))
 
 	// 路由组

@@ -118,18 +118,29 @@ func (h *NoteHandler) GetPublicNotes(c *fiber.Ctx) error {
 }
 
 func (h *NoteHandler) SearchNotes(c *fiber.Ctx) error {
-	userId := c.Locals("userId").(uint)
 	queryStr := c.Query("q")
 	if queryStr == "" {
 		return c.JSON([]models.Note{})
 	}
 
 	var notes []models.Note
-	// 搜索用户自己的笔记或公开的笔记，包括标题、内容和标签
-	h.DB.Where("(owner_id = ? OR is_public = ?) AND (title LIKE ? OR content LIKE ? OR tags LIKE ?)", 
-		userId, true, "%"+queryStr+"%", "%"+queryStr+"%", "%"+queryStr+"%").
-		Preload("Owner").
-		Find(&notes)
+	
+	// 获取用户ID（可能为nil，因为使用了OptionalAuth）
+	userIdInterface := c.Locals("userId")
+	
+	if userIdInterface != nil {
+		// 用户已登录：搜索用户自己的笔记或公开的笔记
+		userId := userIdInterface.(uint)
+		h.DB.Where("(owner_id = ? OR is_public = ?) AND (title LIKE ? OR content LIKE ? OR tags LIKE ?)", 
+			userId, true, "%"+queryStr+"%", "%"+queryStr+"%", "%"+queryStr+"%").
+			Preload("Owner").Find(&notes)
+	} else {
+		// 用户未登录：只搜索公开的笔记
+		h.DB.Where("is_public = ? AND (title LIKE ? OR content LIKE ? OR tags LIKE ?)", 
+			true, "%"+queryStr+"%", "%"+queryStr+"%", "%"+queryStr+"%").
+			Preload("Owner").Find(&notes)
+	}
+	
 	return c.JSON(notes)
 }
 
@@ -138,8 +149,26 @@ func (h *NoteHandler) UpdateNote(c *fiber.Ctx) error {
 	noteId := c.Params("id")
 
 	var note models.Note
-	if err := h.DB.Where("id = ? AND owner_id = ?", noteId, userId).First(&note).Error; err != nil {
-		return c.Status(404).JSON(fiber.Map{"error": "笔记不存在或无权修改"})
+	if err := h.DB.First(&note, noteId).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "笔记不存在"})
+	}
+
+	// 权限检查：个人笔记只能作者编辑，频道笔记所有成员都能编辑
+	canEdit := false
+	if note.ChannelID != nil {
+		// 频道笔记：检查是否是频道成员
+		var membership models.ChannelMember
+		if err := h.DB.Where("channel_id = ? AND user_id = ? AND status = ?", 
+			*note.ChannelID, userId, models.MemberStatusActive).First(&membership).Error; err == nil {
+			canEdit = true
+		}
+	} else {
+		// 个人笔记：只有作者可以编辑
+		canEdit = (note.OwnerID == userId)
+	}
+
+	if !canEdit {
+		return c.Status(403).JSON(fiber.Map{"error": "笔记不存在或无权修改"})
 	}
 
 	type UpdateNoteInput struct {

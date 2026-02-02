@@ -315,7 +315,7 @@
           </div>
           
           <div class="text-xs text-base-content/50 pt-2 border-t border-base-300">
-            <p>版本 1.0.0 | © 2024 oinote</p>
+            <p>版本 1.1.0 | © 2026 MiXiaoAi</p>
           </div>
         </div>
         <div class="modal-action">

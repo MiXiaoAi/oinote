@@ -10,10 +10,47 @@
         :class="{ 'cursor-default': isReadonly }"
       />
       <template v-if="canEdit">
+        <!-- 协同编辑状态指示器 (仅频道笔记显示) -->
+        <div v-if="isCollabEnabled" class="flex items-center gap-2 px-3 py-2 rounded-lg bg-base-200">
+          <!-- 状态点 -->
+          <div class="w-2 h-2 rounded-full" 
+               :class="{
+                 'bg-success': isCollabConnected && isCollabSynced,
+                 'bg-warning': isCollabConnected && !isCollabSynced,
+                 'bg-error': !isCollabConnected
+               }"></div>
+          <!-- 状态文字 (仅桌面端显示) -->
+          <span class="text-xs font-medium hidden sm:inline">
+            {{ isCollabConnected && isCollabSynced ? '协同工作中' : 
+               isCollabConnected ? '同步中' : '未连接' }}
+          </span>
+          <!-- 在线用户头像 -->
+          <div v-if="isCollabConnected && isCollabSynced" class="flex -space-x-2 sm:ml-1">
+            <!-- 显示自己 -->
+            <div class="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold border-2 border-base-100 bg-primary"
+                 :title="`${authStore.user?.username || authStore.user?.nickname || '我'} (你)`">
+              {{ (authStore.user?.username || authStore.user?.nickname || '我').charAt(0).toUpperCase() }}
+            </div>
+            <!-- 显示其他用户 -->
+            <div v-for="[clientId, cursor] in Array.from(remoteCursors.entries()).slice(0, 3)" 
+                 :key="clientId"
+                 class="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold border-2 border-base-100"
+                 :style="{ backgroundColor: cursor.color }"
+                 :title="cursor.username">
+              {{ cursor.username.charAt(0).toUpperCase() }}
+            </div>
+            <div v-if="remoteCursors.size > 3"
+                 class="w-6 h-6 rounded-full flex items-center justify-center bg-base-300 text-xs font-bold border-2 border-base-100"
+                 :title="`还有 ${remoteCursors.size - 3} 位用户`">
+              +{{ remoteCursors.size - 3 }}
+            </div>
+          </div>
+        </div>
+        
         <div class="dropdown dropdown-end">
           <button tabindex="0" class="btn btn-neutral" :disabled="summarizing || polishing">
-            <Sparkles class="w-4 h-4 mr-2" />
-            AI 功能
+            <Sparkles class="w-4 h-4 sm:mr-2" />
+            <span class="hidden sm:inline">AI</span>
           </button>
           <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-40">
             <li>
@@ -41,123 +78,68 @@
     
     <!-- Editor Toolbar (仅编辑模式显示) -->
     <div v-if="canEdit" class="border border-base-300 rounded-t-lg bg-base-200 p-2 flex flex-wrap items-center gap-2">
-      <!-- Text Formatting -->
+      <!-- 第一行：最常用的格式化工具 -->
       <div class="flex items-center gap-1 border-r border-base-300 pr-2">
-        <button @click="editor.chain().focus().toggleBold().run()" 
+        <button @mousedown="handleToolbarAction($event, chain => chain.toggleBold().run())" 
                 :class="{ 'bg-neutral text-neutral-content border-neutral': editor.isActive('bold'), 'bg-base-100 hover:bg-base-300': !editor.isActive('bold') }"
                 class="btn btn-xs btn-square border transition-all duration-200" title="粗体">
           <Bold class="w-4 h-4" />
         </button>
-        <button @click="editor.chain().focus().toggleItalic().run()" 
+        <button @mousedown="handleToolbarAction($event, chain => chain.toggleItalic().run())" 
                 :class="{ 'bg-neutral text-neutral-content border-neutral': editor.isActive('italic'), 'bg-base-100 hover:bg-base-300': !editor.isActive('italic') }"
                 class="btn btn-xs btn-square border transition-all duration-200" title="斜体">
           <Italic class="w-4 h-4" />
         </button>
-        <button @click="editor.chain().focus().toggleUnderline().run()" 
+        <button @mousedown="handleToolbarAction($event, chain => chain.toggleUnderline().run())" 
+                class="btn btn-xs btn-square border transition-all duration-200 hidden sm:inline-flex"
                 :class="{ 'bg-neutral text-neutral-content border-neutral': editor.isActive('underline'), 'bg-base-100 hover:bg-base-300': !editor.isActive('underline') }"
-                class="btn btn-xs btn-square border transition-all duration-200" title="下划线">
+                title="下划线">
           <UnderlineIcon class="w-4 h-4" />
         </button>
-        <button @click="editor.chain().focus().toggleStrike().run()" 
+        <button @mousedown="handleToolbarAction($event, chain => chain.toggleStrike().run())" 
+                class="btn btn-xs btn-square border transition-all duration-200 hidden sm:inline-flex"
                 :class="{ 'bg-neutral text-neutral-content border-neutral': editor.isActive('strike'), 'bg-base-100 hover:bg-base-300': !editor.isActive('strike') }"
-                class="btn btn-xs btn-square border transition-all duration-200" title="删除线">
+                title="删除线">
           <Strikethrough class="w-4 h-4" />
-        </button>
-        <button @click="editor.chain().focus().toggleCode().run()" 
-                :class="{ 'bg-neutral text-neutral-content border-neutral': editor.isActive('code'), 'bg-base-100 hover:bg-base-300': !editor.isActive('code') }"
-                class="btn btn-xs btn-square border transition-all duration-200" title="代码">
-          <Code class="w-4 h-4" />
         </button>
       </div>
 
-      <!-- Headings -->
+      <!-- 标题 -->
       <div class="flex items-center gap-1 border-r border-base-300 pr-2">
-        <button @click="editor.chain().focus().toggleHeading({ level: 1 }).run()" 
+        <button @mousedown="handleToolbarAction($event, chain => chain.toggleHeading({ level: 1 }).run())" 
                 :class="{ 'bg-neutral text-neutral-content border-neutral': editor.isActive('heading', { level: 1 }), 'bg-base-100 hover:bg-base-300': !editor.isActive('heading', { level: 1 }) }"
                 class="btn btn-xs btn-square border transition-all duration-200" title="标题1">
           <Heading1 class="w-4 h-4" />
         </button>
-        <button @click="editor.chain().focus().toggleHeading({ level: 2 }).run()" 
+        <button @mousedown="handleToolbarAction($event, chain => chain.toggleHeading({ level: 2 }).run())" 
                 :class="{ 'bg-neutral text-neutral-content border-neutral': editor.isActive('heading', { level: 2 }), 'bg-base-100 hover:bg-base-300': !editor.isActive('heading', { level: 2 }) }"
                 class="btn btn-xs btn-square border transition-all duration-200" title="标题2">
           <Heading2 class="w-4 h-4" />
         </button>
-        <button @click="editor.chain().focus().toggleHeading({ level: 3 }).run()" 
+        <button @mousedown="handleToolbarAction($event, chain => chain.toggleHeading({ level: 3 }).run())" 
+                class="btn btn-xs btn-square border transition-all duration-200 hidden sm:inline-flex"
                 :class="{ 'bg-neutral text-neutral-content border-neutral': editor.isActive('heading', { level: 3 }), 'bg-base-100 hover:bg-base-300': !editor.isActive('heading', { level: 3 }) }"
-                class="btn btn-xs btn-square border transition-all duration-200" title="标题3">
+                title="标题3">
           <Heading3 class="w-4 h-4" />
         </button>
       </div>
 
-      <!-- Lists -->
+      <!-- 列表 -->
       <div class="flex items-center gap-1 border-r border-base-300 pr-2">
-        <button @click="editor.chain().focus().toggleBulletList().run()" 
+        <button @mousedown="handleToolbarAction($event, chain => chain.toggleBulletList().run())" 
                 :class="{ 'bg-neutral text-neutral-content border-neutral': editor.isActive('bulletList'), 'bg-base-100 hover:bg-base-300': !editor.isActive('bulletList') }"
                 class="btn btn-xs btn-square border transition-all duration-200" title="无序列表">
           <List class="w-4 h-4" />
         </button>
-        <button @click="editor.chain().focus().toggleOrderedList().run()" 
+        <button @mousedown="handleToolbarAction($event, chain => chain.toggleOrderedList().run())" 
                 :class="{ 'bg-neutral text-neutral-content border-neutral': editor.isActive('orderedList'), 'bg-base-100 hover:bg-base-300': !editor.isActive('orderedList') }"
                 class="btn btn-xs btn-square border transition-all duration-200" title="有序列表">
           <ListOrdered class="w-4 h-4" />
         </button>
       </div>
 
-      <!-- Alignment -->
+      <!-- 上传（移动端优先显示） -->
       <div class="flex items-center gap-1 border-r border-base-300 pr-2">
-        <button @click="editor.chain().focus().setTextAlign('left').run()"
-                :class="{ 'bg-neutral text-neutral-content border-neutral': isLeftAlignActive, 'bg-base-100 hover:bg-base-300': !isLeftAlignActive }"
-                class="btn btn-xs btn-square border transition-all duration-200" title="左对齐">
-          <AlignLeft class="w-4 h-4" />
-        </button>
-        <button @click="editor.chain().focus().setTextAlign('center').run()"
-                :class="{ 'bg-neutral text-neutral-content border-neutral': editor.isActive({ textAlign: 'center' }), 'bg-base-100 hover:bg-base-300': !editor.isActive({ textAlign: 'center' }) }"
-                class="btn btn-xs btn-square border transition-all duration-200" title="居中对齐">
-          <AlignCenter class="w-4 h-4" />
-        </button>
-        <button @click="editor.chain().focus().setTextAlign('right').run()"
-                :class="{ 'bg-neutral text-neutral-content border-neutral': editor.isActive({ textAlign: 'right' }), 'bg-base-100 hover:bg-base-300': !editor.isActive({ textAlign: 'right' }) }"
-                class="btn btn-xs btn-square border transition-all duration-200" title="右对齐">
-          <AlignRight class="w-4 h-4" />
-        </button>
-      </div>
-
-      <!-- Other -->
-      <div class="flex items-center gap-1 border-r border-base-300 pr-2">
-        <button @click="editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()"
-                class="btn btn-xs btn-square border transition-all duration-200" title="插入表格">
-          <TableIcon class="w-4 h-4" />
-        </button>
-        <button @click="editor.chain().focus().toggleBlockquote().run()" 
-                :class="{ 'bg-neutral text-neutral-content border-neutral': editor.isActive('blockquote'), 'bg-base-100 hover:bg-base-300': !editor.isActive('blockquote') }"
-                class="btn btn-xs btn-square border transition-all duration-200" title="引用">
-          <Quote class="w-4 h-4" />
-        </button>
-        <button @click="editor.chain().focus().toggleCodeBlock().run()" 
-                :class="{ 'bg-neutral text-neutral-content border-neutral': editor.isActive('codeBlock'), 'bg-base-100 hover:bg-base-300': !editor.isActive('codeBlock') }"
-                class="btn btn-xs btn-square border transition-all duration-200" title="代码块">
-          <Code2 class="w-4 h-4" />
-        </button>
-      </div>
-
-      <!-- History -->
-      <div class="flex items-center gap-1 border-r border-base-300 pr-2">
-        <button @click="editor.chain().focus().undo().run()"
-                :disabled="!editor.can().undo()"
-                :class="{ 'bg-base-100 hover:bg-base-300': editor.can().undo(), 'bg-base-200 opacity-50 cursor-not-allowed': !editor.can().undo() }"
-                class="btn btn-xs btn-square border transition-all duration-200" title="撤销">
-          <Undo class="w-4 h-4" />
-        </button>
-        <button @click="editor.chain().focus().redo().run()"
-                :disabled="!editor.can().redo()"
-                :class="{ 'bg-base-100 hover:bg-base-300': editor.can().redo(), 'bg-base-200 opacity-50 cursor-not-allowed': !editor.can().redo() }"
-                class="btn btn-xs btn-square border transition-all duration-200" title="重做">
-          <Redo class="w-4 h-4" />
-        </button>
-      </div>
-
-      <!-- Upload -->
-      <div class="flex items-center gap-1">
         <input
           ref="imageInputRef"
           type="file"
@@ -174,8 +156,70 @@
           class="hidden"
           @change="handleFileSelected"
         />
-        <button @click="triggerFileUpload" :disabled="isUploading" class="btn btn-xs btn-square border bg-base-100 hover:bg-base-300 transition-all duration-200" title="插入附件">
+        <button @click="triggerFileUpload" :disabled="isUploading" class="btn btn-xs btn-square border bg-base-100 hover:bg-base-300 transition-all duration-200 hidden sm:inline-flex" title="插入附件">
           <Paperclip class="w-4 h-4" />
+        </button>
+      </div>
+
+      <!-- 历史操作 -->
+      <div class="flex items-center gap-1 border-r border-base-300 pr-2">
+        <button @mousedown="handleToolbarAction($event, chain => chain.undo().run())"
+                :disabled="!editor.can().undo()"
+                :class="{ 'bg-base-100 hover:bg-base-300': editor.can().undo(), 'bg-base-200 opacity-50 cursor-not-allowed': !editor.can().undo() }"
+                class="btn btn-xs btn-square border transition-all duration-200" title="撤销">
+          <Undo class="w-4 h-4" />
+        </button>
+        <button @mousedown="handleToolbarAction($event, chain => chain.redo().run())"
+                :disabled="!editor.can().redo()"
+                :class="{ 'bg-base-100 hover:bg-base-300': editor.can().redo(), 'bg-base-200 opacity-50 cursor-not-allowed': !editor.can().redo() }"
+                class="btn btn-xs btn-square border transition-all duration-200" title="重做">
+          <Redo class="w-4 h-4" />
+        </button>
+      </div>
+
+      <!-- 桌面端额外功能 -->
+      <div class="hidden sm:flex items-center gap-1 border-r border-base-300 pr-2">
+        <button @mousedown="handleToolbarAction($event, chain => chain.toggleCode().run())" 
+                :class="{ 'bg-neutral text-neutral-content border-neutral': editor.isActive('code'), 'bg-base-100 hover:bg-base-300': !editor.isActive('code') }"
+                class="btn btn-xs btn-square border transition-all duration-200" title="代码">
+          <Code class="w-4 h-4" />
+        </button>
+        <button @mousedown="handleToolbarAction($event, chain => chain.toggleBlockquote().run())" 
+                :class="{ 'bg-neutral text-neutral-content border-neutral': editor.isActive('blockquote'), 'bg-base-100 hover:bg-base-300': !editor.isActive('blockquote') }"
+                class="btn btn-xs btn-square border transition-all duration-200" title="引用">
+          <Quote class="w-4 h-4" />
+        </button>
+      </div>
+
+      <!-- 对齐（桌面端显示） -->
+      <div class="hidden sm:flex items-center gap-1 border-r border-base-300 pr-2">
+        <button @mousedown="handleToolbarAction($event, chain => chain.setTextAlign('left').run())"
+                :class="{ 'bg-neutral text-neutral-content border-neutral': isLeftAlignActive, 'bg-base-100 hover:bg-base-300': !isLeftAlignActive }"
+                class="btn btn-xs btn-square border transition-all duration-200" title="左对齐">
+          <AlignLeft class="w-4 h-4" />
+        </button>
+        <button @mousedown="handleToolbarAction($event, chain => chain.setTextAlign('center').run())"
+                :class="{ 'bg-neutral text-neutral-content border-neutral': editor.isActive({ textAlign: 'center' }), 'bg-base-100 hover:bg-base-300': !editor.isActive({ textAlign: 'center' }) }"
+                class="btn btn-xs btn-square border transition-all duration-200" title="居中对齐">
+          <AlignCenter class="w-4 h-4" />
+        </button>
+        <button @mousedown="handleToolbarAction($event, chain => chain.setTextAlign('right').run())"
+                :class="{ 'bg-neutral text-neutral-content border-neutral': editor.isActive({ textAlign: 'right' }), 'bg-base-100 hover:bg-base-300': !editor.isActive({ textAlign: 'right' }) }"
+                class="btn btn-xs btn-square border transition-all duration-200" title="右对齐">
+          <AlignRight class="w-4 h-4" />
+        </button>
+      </div>
+
+      <!-- 表格和代码块（桌面端显示） -->
+      <div class="hidden sm:flex items-center gap-1">
+        <button @mousedown="handleToolbarAction($event, chain => chain.insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run())"
+                class="btn btn-xs btn-square border transition-all duration-200" title="插入表格">
+          <TableIcon class="w-4 h-4" />
+        </button>
+        <button @mousedown="handleToolbarAction($event, chain => chain.toggleCodeBlock().run())" 
+                :class="{ 'bg-neutral text-neutral-content border-neutral': editor.isActive('codeBlock'), 'bg-base-100 hover:bg-base-300': !editor.isActive('codeBlock') }"
+                class="btn btn-xs btn-square border transition-all duration-200" title="代码块">
+          <Code2 class="w-4 h-4" />
         </button>
       </div>
 
@@ -433,6 +477,7 @@ import eventBus from '../utils/eventBus';
 import { getFileUrl } from '../utils/urlHelper';
 import { inject } from 'vue';
 import { marked } from 'marked';
+import { YjsCollabClient } from '../utils/yjs-collab';
 
 const route = useRoute();
 const router = useRouter();
@@ -466,20 +511,35 @@ const polishedContent = ref('');
 // Editor state
 const lineSpacing = ref(1.5);
 
+// 协同编辑状态
+const collabClient = ref(null);
+const isCollabEnabled = computed(() => !!noteChannelId.value && authStore.isAuthenticated);
+const isCollabConnected = ref(false);
+const isCollabSynced = ref(false);
+const isChannelMember = ref(false); // 是否是频道成员
+const remoteCursors = ref(new Map()); // 存储其他用户的光标位置
+
 // 配置 marked 以支持 GFM 和其他功能
 marked.setOptions({
   breaks: true,  // 支持换行符转换为 <br>
   gfm: true,     // 启用 GitHub Flavored Markdown
 });
 
-// 计算属性：是否可以编辑（未登录时是访客，或登录时不是作者）
+// 计算属性：是否可以编辑
 const canEdit = computed(() => {
   // 新笔记（没有ID）可以编辑
   if (!route.params.id) return true;
   // 需要用户登录
   if (!authStore.isAuthenticated) return false;
-  // 需要是当前用户自己的笔记
+  // 如果没有加载完成，暂时不允许编辑
   if (!noteOwnerId.value) return false;
+  
+  // 如果是频道笔记，检查是否是频道成员
+  if (noteChannelId.value) {
+    return isChannelMember.value;
+  }
+  
+  // 个人笔记：需要是当前用户自己的笔记
   return authStore.user?.id === noteOwnerId.value;
 });
 
@@ -497,6 +557,37 @@ const showContextMenu = ref(false);
 const contextMenuX = ref(0);
 const contextMenuY = ref(0);
 const contextMenuType = ref('default'); // 'default', 'table', 'selection'
+
+// 协同编辑同步状态
+let isUpdatingFromYjs = false;
+let syncTimeout = null;
+
+// 检测是否是移动设备
+const isMobile = () => {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
+};
+
+// 工具栏按钮点击处理（移动端智能聚焦）
+const handleToolbarAction = (event, action) => {
+  // 阻止按钮获得焦点，避免编辑器失焦
+  event.preventDefault();
+  
+  if (isMobile()) {
+    // 移动端：检查编辑器是否已经有焦点
+    const editorHasFocus = editor.view.hasFocus();
+    
+    if (editorHasFocus) {
+      // 如果编辑器已经有焦点（用户正在编辑），正常调用 focus() 保持焦点
+      action(editor.chain().focus());
+    } else {
+      // 如果编辑器没有焦点，不调用 focus()，避免唤起输入法
+      action(editor.chain());
+    }
+  } else {
+    // 桌面端：正常调用 focus()
+    action(editor.chain().focus());
+  }
+};
 
 // 自定义扩展：按 Tab 键插入制表符
 const TabIndent = Extension.create({
@@ -552,11 +643,25 @@ const editor = new Editor({
   ],
   content: '',
   onUpdate: ({ editor }) => {
+    // 如果正在从 Yjs 更新，不要触发同步
+    if (isUpdatingFromYjs) {
+      return;
+    }
+    
+    // 如果启用了协同编辑，同步到 Yjs
+    if (isCollabEnabled.value && collabClient.value?.synced) {
+      syncEditorToYjs();
+    }
+    
     // Auto-save on content change
     const currentContent = editor.getHTML();
     if (currentContent !== lastSavedContent.value && route.params.id) {
       autoSave();
     }
+  },
+  onSelectionUpdate: () => {
+    // 发送光标位置
+    handleSelectionUpdate();
   },
 });
 
@@ -612,6 +717,18 @@ onMounted(() => {
   // Prevent browser from opening files when dragging
   window.addEventListener('dragover', (e) => e.preventDefault());
   window.addEventListener('drop', (e) => e.preventDefault());
+  
+  // 监听编辑器滚动，更新光标位置
+  nextTick(() => {
+    const editorElement = document.querySelector('.ProseMirror');
+    if (editorElement) {
+      editorElement.addEventListener('scroll', () => {
+        if (remoteCursors.value.size > 0) {
+          updateCursorDecorations();
+        }
+      });
+    }
+  });
 });
 
 const handleKeyboardShortcuts = (e) => {
@@ -669,10 +786,18 @@ const resetLineSpacing = () => {
 const loadNote = async () => {
   const seq = ++loadSeq;
   loadingNote.value = true;
+  
+  // 断开之前的协同编辑连接
+  disconnectCollab();
+  
+  // 重置频道成员状态
+  isChannelMember.value = false;
+  
   try {
     if (route.params.id) {
       const res = await api.get(`/notes/${route.params.id}`);
       if (seq !== loadSeq) return;
+      
       title.value = res.data.title;
       editor.commands.setContent(res.data.content);
       noteOwnerId.value = res.data.owner_id;
@@ -693,13 +818,22 @@ const loadNote = async () => {
 
       lastSavedContent.value = editor.getHTML();
 
-      // 如果是频道笔记，获取频道名称
+      // 如果是频道笔记，获取频道信息并检查成员权限
       if (res.data.channel_id) {
         try {
           const channelRes = await api.get(`/channels/${res.data.channel_id}`);
           noteChannelName.value = channelRes.data.channel?.name || '';
+          
+          // 检查当前用户是否是频道成员
+          // 注意：成员列表在 channelRes.data.members，不是 channelRes.data.channel.members
+          if (authStore.isAuthenticated && channelRes.data.members) {
+            const currentUserId = authStore.user?.id;
+            isChannelMember.value = channelRes.data.members.some(
+              member => member.user_id === currentUserId && member.status === 'active'
+            );
+          }
         } catch (e) {
-          console.error('Failed to fetch channel name:', e);
+          console.error('Failed to fetch channel info:', e);
         }
       }
 
@@ -709,6 +843,13 @@ const loadNote = async () => {
       } else {
         editor.setEditable(true);
       }
+      
+      // 如果是频道笔记且用户已登录，启用协同编辑
+      if (isCollabEnabled.value) {
+        await nextTick();
+        initCollab();
+      }
+      
       // 发送笔记信息到 header
       emitNoteInfo();
       return;
@@ -718,6 +859,7 @@ const loadNote = async () => {
     noteChannelId.value = null;
     noteOwnerName.value = '';
     noteChannelName.value = '';
+    isChannelMember.value = false;
 
     if (seq !== loadSeq) return;
     title.value = '';
@@ -1078,6 +1220,283 @@ watch(title, (value) => {
   eventBus.emit('note-title-updated', { id: Number(route.params.id), title: value });
 });
 
+// 协同编辑相关函数
+const initCollab = () => {
+  if (!route.params.id || !authStore.user) return;
+  
+  try {
+    collabClient.value = new YjsCollabClient(
+      Number(route.params.id),
+      authStore.user.id,
+      authStore.user.username || authStore.user.nickname || `User${authStore.user.id}`
+    );
+
+    // 监听 Yjs 更新
+    collabClient.value.onUpdate = (content) => {
+      syncYjsToEditor(content);
+    };
+
+    // 监听同步完成
+    collabClient.value.onSync = (content) => {
+      isCollabSynced.value = true;
+      
+      // 同步完成后，如果服务器有内容，使用服务器内容
+      // 如果服务器没有内容，发送本地内容
+      if (content && content.trim()) {
+        syncYjsToEditor(content);
+      } else {
+        const localHtml = editor.getHTML();
+        if (localHtml && localHtml !== '<p></p>') {
+          collabClient.value.setText(localHtml);
+        }
+      }
+    };
+
+    // 监听感知状态（光标位置）
+    collabClient.value.onAwareness = (awareness) => {
+      handleRemoteCursor(awareness);
+    };
+
+    // 监听用户离开
+    collabClient.value.onUserLeft = (user) => {
+      remoteCursors.value.delete(user.clientId);
+      // 强制触发 Vue 响应式更新
+      remoteCursors.value = new Map(remoteCursors.value);
+      updateCursorDecorations();
+    };
+
+    // 监听连接状态
+    collabClient.value.onConnect = () => {
+      isCollabConnected.value = true;
+    };
+
+    collabClient.value.onDisconnect = () => {
+      isCollabConnected.value = false;
+      isCollabSynced.value = false;
+      // 清除所有远程光标
+      remoteCursors.value.clear();
+      // 强制触发 Vue 响应式更新
+      remoteCursors.value = new Map(remoteCursors.value);
+      updateCursorDecorations();
+    };
+
+    // 连接到服务器
+    collabClient.value.connect();
+  } catch (err) {
+    console.error('初始化协同编辑失败:', err);
+    if (notification) {
+      notification.showNotification('协同编辑连接失败', 'error');
+    }
+  }
+};
+
+const disconnectCollab = () => {
+  if (collabClient.value) {
+    collabClient.value.destroy();
+    collabClient.value = null;
+    isCollabConnected.value = false;
+    isCollabSynced.value = false;
+  }
+};
+
+const syncYjsToEditor = (content) => {
+  if (isUpdatingFromYjs) {
+    return;
+  }
+  
+  // 设置标志，防止循环
+  isUpdatingFromYjs = true;
+  
+  // 清除之前的超时
+  if (syncTimeout) {
+    clearTimeout(syncTimeout);
+  }
+  
+  try {
+    // 保存当前光标位置
+    const { from } = editor.state.selection;
+    
+    // 获取当前编辑器内容
+    const currentContent = editor.getHTML();
+    
+    // 只有当内容真的不同时才更新
+    if (currentContent !== content) {
+      // 直接使用 HTML 内容（Yjs 存储的是 HTML）
+      editor.commands.setContent(content || '<p></p>', false);
+      
+      // 恢复光标位置
+      try {
+        const newLength = editor.state.doc.content.size;
+        const safePosition = Math.min(from, Math.max(0, newLength - 1));
+        editor.commands.setTextSelection(safePosition);
+      } catch (e) {
+        // 忽略光标位置错误
+      }
+    }
+    
+    // 更新远程光标显示
+    nextTick(() => {
+      updateCursorDecorations();
+    });
+  } finally {
+    // 延迟重置标志，确保 onUpdate 事件处理完成
+    syncTimeout = setTimeout(() => {
+      isUpdatingFromYjs = false;
+      syncTimeout = null;
+    }, 100);
+  }
+};
+
+const syncEditorToYjs = () => {
+  if (isUpdatingFromYjs || !collabClient.value?.synced) {
+    return;
+  }
+  
+  try {
+    const editorHtml = editor.getHTML();
+    const yjsText = collabClient.value.getText();
+    
+    // 只有当内容真的不同时才同步
+    if (editorHtml !== yjsText) {
+      collabClient.value.setText(editorHtml);
+    }
+  } catch (e) {
+    console.error('同步到 Yjs 失败:', e);
+  }
+};
+
+// 处理远程光标
+const handleRemoteCursor = (awareness) => {
+  if (!awareness.cursor) {
+    // 移除光标
+    remoteCursors.value.delete(awareness.clientId);
+  } else {
+    // 更新光标
+    remoteCursors.value.set(awareness.clientId, {
+      userId: awareness.userId,
+      username: awareness.username,
+      color: awareness.color,
+      from: awareness.cursor.from,
+      to: awareness.cursor.to,
+      timestamp: awareness.timestamp
+    });
+  }
+  
+  // 清理过期的光标（超过10秒）
+  const now = Date.now() / 1000;
+  for (const [clientId, cursor] of remoteCursors.value.entries()) {
+    if (now - cursor.timestamp > 10) {
+      remoteCursors.value.delete(clientId);
+    }
+  }
+  
+  // 强制触发 Vue 响应式更新
+  // 创建一个新的 Map 来触发响应
+  remoteCursors.value = new Map(remoteCursors.value);
+};
+
+// 更新光标装饰
+const updateCursorDecorations = () => {
+  // 移除所有现有的光标标签
+  document.querySelectorAll('.remote-cursor').forEach(el => el.remove());
+  
+  if (!editor || remoteCursors.value.size === 0) {
+    return;
+  }
+  
+  try {
+    const editorElement = document.querySelector('.ProseMirror');
+    if (!editorElement) return;
+    
+    const docSize = editor.state.doc.content.size;
+    
+    // 为每个远程光标创建装饰
+    for (const [clientId, cursor] of remoteCursors.value.entries()) {
+      try {
+        // 确保光标位置在有效范围内
+        const safeFrom = Math.min(Math.max(0, cursor.from), docSize - 1);
+        
+        // 获取光标位置的 DOM 坐标
+        const coords = editor.view.coordsAtPos(safeFrom);
+        if (!coords) continue;
+        
+        // 获取编辑器容器的位置
+        const editorRect = editorElement.getBoundingClientRect();
+        
+        // 计算相对位置
+        const left = coords.left - editorRect.left + editorElement.scrollLeft;
+        const top = coords.top - editorRect.top + editorElement.scrollTop;
+        
+        // 创建光标元素
+        const cursorEl = document.createElement('div');
+        cursorEl.className = 'remote-cursor';
+        cursorEl.style.position = 'absolute';
+        cursorEl.style.left = `${left}px`;
+        cursorEl.style.top = `${top}px`;
+        cursorEl.style.width = '2px';
+        cursorEl.style.height = '20px';
+        cursorEl.style.backgroundColor = cursor.color;
+        cursorEl.style.zIndex = '1000';
+        cursorEl.style.pointerEvents = 'none';
+        
+        // 创建标签元素
+        const labelEl = document.createElement('div');
+        labelEl.className = 'remote-cursor-label';
+        labelEl.textContent = cursor.username;
+        labelEl.style.position = 'absolute';
+        labelEl.style.left = '0';
+        labelEl.style.top = '-20px';
+        labelEl.style.backgroundColor = cursor.color;
+        labelEl.style.color = 'white';
+        labelEl.style.padding = '2px 6px';
+        labelEl.style.borderRadius = '3px';
+        labelEl.style.fontSize = '12px';
+        labelEl.style.whiteSpace = 'nowrap';
+        labelEl.style.pointerEvents = 'none';
+        
+        cursorEl.appendChild(labelEl);
+        editorElement.appendChild(cursorEl);
+      } catch (e) {
+        // 忽略单个光标的错误
+        console.warn('渲染光标失败:', e);
+      }
+    }
+  } catch (e) {
+    console.error('更新光标装饰失败:', e);
+  }
+};
+
+// 发送本地光标位置
+const sendLocalCursor = () => {
+  if (!collabClient.value?.synced) {
+    return;
+  }
+  
+  try {
+    const { from, to } = editor.state.selection;
+    collabClient.value.sendCursorPosition(from, to);
+  } catch (e) {
+    // 忽略错误
+  }
+};
+
+// 监听编辑器选择变化
+let cursorUpdateTimeout = null;
+const handleSelectionUpdate = () => {
+  if (!isCollabEnabled.value || !isCollabSynced.value) {
+    return;
+  }
+  
+  // 防抖：避免频繁发送光标位置
+  if (cursorUpdateTimeout) {
+    clearTimeout(cursorUpdateTimeout);
+  }
+  
+  cursorUpdateTimeout = setTimeout(() => {
+    sendLocalCursor();
+  }, 200);
+};
+
 onMounted(() => {
   loadNote();
   eventBus.on('note-updated', handleExternalNoteUpdate);
@@ -1089,6 +1508,18 @@ onBeforeUnmount(() => {
   window.removeEventListener('drop', (e) => e.preventDefault());
   window.removeEventListener('keydown', handleKeyboardShortcuts);
   eventBus.off('note-updated', handleExternalNoteUpdate);
+  
+  // 清除同步超时
+  if (syncTimeout) {
+    clearTimeout(syncTimeout);
+  }
+  
+  // 清除光标更新超时
+  if (cursorUpdateTimeout) {
+    clearTimeout(cursorUpdateTimeout);
+  }
+  
+  disconnectCollab();
   editor.destroy();
 });
 </script>
@@ -1269,6 +1700,35 @@ onBeforeUnmount(() => {
   font-size: 1.5em;
   border-bottom: 1px solid hsl(var(--bc) / 0.15);
   padding-bottom: 0.3em;
+}
+
+/* 远程光标样式 */
+.remote-cursor {
+  position: absolute;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.remote-cursor-label {
+  position: absolute;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 500;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+@keyframes blink {
+  0%, 49% {
+    opacity: 1;
+  }
+  50%, 100% {
+    opacity: 0;
+  }
+}
+
+/* 编辑器容器需要相对定位 */
+.ProseMirror {
+  position: relative;
 }
 
 .prose h3 {

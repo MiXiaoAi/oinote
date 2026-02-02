@@ -404,7 +404,7 @@
             <span class="loading loading-spinner loading-lg text-neutral"></span>
           </div>
           <div v-else-if="searchResults.length === 0 && searchQuery" class="text-center py-8 text-base-content/50">
-            未找到相关笔记
+            未找到相关内容
           </div>
           <div v-else-if="searchResults.length === 0 && !searchQuery" class="text-center py-8 text-base-content/50">
             请输入搜索关键词
@@ -670,10 +670,12 @@ const handleSearch = async () => {
   searching.value = true;
   try {
     const query = searchQuery.value.trim().toLowerCase();
-    const [notesRes, channelsRes] = await Promise.all([
-      api.get('/notes/search', { params: { q: searchQuery.value.trim() } }),
-      api.get('/channels') // 获取所有频道
-    ]);
+    
+    // 分别请求笔记和频道，避免一个失败影响另一个
+    const notesPromise = api.get('/notes/search', { params: { q: searchQuery.value.trim() } }).catch(() => ({ data: [] }));
+    const channelsPromise = api.get('/public/channels').catch(() => ({ data: [] }));
+    
+    const [notesRes, channelsRes] = await Promise.all([notesPromise, channelsPromise]);
 
     const results = [];
 
@@ -696,7 +698,7 @@ const handleSearch = async () => {
       });
     });
 
-    // 处理频道搜索结果
+    // 处理频道搜索结果（只搜索公开频道）
     (channelsRes.data || []).forEach(channel => {
       const reasons = [];
       if (channel.name && channel.name.toLowerCase().includes(query)) {
