@@ -125,7 +125,10 @@ func (h *NoteHandler) SearchNotes(c *fiber.Ctx) error {
 	}
 
 	var notes []models.Note
-	h.DB.Where("owner_id = ? AND (title LIKE ? OR content LIKE ?)", userId, "%"+queryStr+"%", "%"+queryStr+"%").
+	// 搜索用户自己的笔记或公开的笔记，包括标题、内容和标签
+	h.DB.Where("(owner_id = ? OR is_public = ?) AND (title LIKE ? OR content LIKE ? OR tags LIKE ?)", 
+		userId, true, "%"+queryStr+"%", "%"+queryStr+"%", "%"+queryStr+"%").
+		Preload("Owner").
 		Find(&notes)
 	return c.JSON(notes)
 }

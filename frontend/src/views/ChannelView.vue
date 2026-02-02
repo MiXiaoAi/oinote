@@ -406,6 +406,15 @@
       @close="closeMediaPlayer"
     />
 
+    <!-- 笔记管理模态框 -->
+    <ManageModal
+      :open="showNoteManageModal"
+      type="note"
+      :item="editingNote"
+      @close="closeNoteManageModal"
+      @save="saveNoteManage"
+    />
+
     <!-- 消息右键菜单 -->
     <div v-if="showMessageContextMenu"
          class="fixed z-50 bg-base-100 shadow-xl rounded-lg border border-base-300 py-1 min-w-[180px] text-sm"
@@ -444,15 +453,21 @@
 
       <button @click="openNote(selectedNoteForMenu)"
               class="w-full text-left px-4 py-2 hover:bg-base-200 flex items-center gap-2">
-        打开笔记
+        打开
       </button>
 
-      <div v-if="canDeleteNote(selectedNoteForMenu)" class="px-3 py-1.5 text-xs font-bold text-base-content/50 uppercase tracking-wider">管理操作</div>
+      <div v-if="canManageNote(selectedNoteForMenu)" class="px-3 py-1.5 text-xs font-bold text-base-content/50 uppercase tracking-wider">管理操作</div>
+
+      <button v-if="canManageNote(selectedNoteForMenu)"
+              @click="openNoteManageModal"
+              class="w-full text-left px-4 py-2 hover:bg-base-200 flex items-center gap-2">
+        管理
+      </button>
 
       <button v-if="canDeleteNote(selectedNoteForMenu)"
               @click="deleteChannelNote"
               class="w-full text-left px-4 py-2 hover:bg-error/10 flex items-center gap-2 text-error hover:text-error/80">
-        删除笔记
+        删除
       </button>
     </div>
 
@@ -569,6 +584,7 @@ import { useAuthStore } from '../stores/auth';
 import api from '../api/axios';
 import eventBus from '../utils/eventBus';
 import MediaPlayer from '../components/MediaPlayer.vue';
+import ManageModal from '../components/ManageModal.vue';
 import { getFileUrl } from '../utils/urlHelper';
 import wsClient from '../utils/websocket';
 
@@ -627,6 +643,10 @@ const showNoteContextMenu = ref(false);
 const noteContextMenuX = ref(0);
 const noteContextMenuY = ref(0);
 const selectedNoteForMenu = ref(null);
+
+// 笔记管理模态框状态
+const showNoteManageModal = ref(false);
+const editingNote = ref(null);
 
 // 消息列表容器引用（用于自动滚动）
 const messagesContainerRef = ref(null);
@@ -920,6 +940,18 @@ const closeNoteContextMenu = () => {
   selectedNoteForMenu.value = null;
 };
 
+// 检查是否可以管理笔记
+const canManageNote = (note) => {
+  if (!authStore.isAuthenticated || !note) return false;
+
+  // 如果是笔记的所有者，可以管理
+  if (note.owner_id === authStore.user?.id) return true;
+
+  // 检查是否是频道管理员或所有者
+  const member = members.value.find(m => m.user_id === authStore.user?.id);
+  return member && (member.role === 'admin' || member.role === 'owner');
+};
+
 // 检查是否可以删除笔记
 const canDeleteNote = (note) => {
   if (!authStore.isAuthenticated || !note) return false;
@@ -951,6 +983,55 @@ const deleteChannelNote = async () => {
   }
 
   closeNoteContextMenu();
+};
+
+// 打开笔记管理模态框
+const openNoteManageModal = () => {
+  if (!selectedNoteForMenu.value) return;
+  editingNote.value = selectedNoteForMenu.value;
+  showNoteManageModal.value = true;
+  closeNoteContextMenu();
+};
+
+// 关闭笔记管理模态框
+const closeNoteManageModal = () => {
+  showNoteManageModal.value = false;
+  editingNote.value = null;
+};
+
+// 保存笔记管理
+const saveNoteManage = async (payload) => {
+  if (!editingNote.value) return;
+  try {
+    const res = await api.put(`/notes/${editingNote.value.id}`, {
+      title: payload.title,
+      is_public: payload.is_public,
+      tags: payload.tags
+    });
+    
+    // 更新本地笔记列表
+    const noteIndex = notes.value.findIndex(n => n.id === editingNote.value.id);
+    if (noteIndex !== -1) {
+      notes.value[noteIndex] = { ...notes.value[noteIndex], ...res.data };
+    }
+    
+    // 通知Sidebar更新
+    eventBus.emit('note-updated', {
+      id: editingNote.value.id,
+      title: payload.title,
+      is_public: payload.is_public,
+      tags: payload.tags
+    });
+    
+    if (notification) {
+      notification.showNotification('保存成功', 'success');
+    }
+    closeNoteManageModal();
+  } catch (err) {
+    if (notification) {
+      notification.showNotification(err.response?.data?.error || '保存失败', 'error');
+    }
+  }
 };
 
 // 检查是否可以删除消息

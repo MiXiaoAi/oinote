@@ -112,6 +112,7 @@ func main() {
 	optional.Get("/public/channels", channelHandler.GetPublicChannels)
 	optional.Get("/channels/:id", channelHandler.GetChannel)
 	optional.Get("/channels/:id/messages", channelHandler.GetChannelMessages)
+	optional.Get("/notes/search", noteHandler.SearchNotes) // 搜索路由必须在notes/:id之前
 	optional.Get("/notes/:id", noteHandler.GetNote)
 	optional.Get("/notes", noteHandler.GetNotes) // 允许访客查看公开笔记
 
@@ -141,7 +142,6 @@ func main() {
 	protected.Post("/notes", noteHandler.CreateNote)
 	protected.Put("/notes/:id", noteHandler.UpdateNote)
 	protected.Delete("/notes/:id", noteHandler.DeleteNote)
-	protected.Get("/notes/search", noteHandler.SearchNotes)
 
 	protected.Post("/upload", fileHandler.Upload)
 

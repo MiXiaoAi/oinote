@@ -74,6 +74,12 @@
           >
             文件
           </button>
+          <button
+            class="btn btn-ghost btn-sm btn-circle"
+            @click="openSearch"
+          >
+            <Search class="w-4 h-4" />
+          </button>
         </div>
       </header>
       <div class="flex-1 overflow-auto relative pb-16 lg:pb-0">
@@ -371,6 +377,95 @@
         </div>
       </div>
     </dialog>
+
+    <!-- Search Modal -->
+    <dialog :open="showSearchModal" class="modal modal-bottom sm:modal-middle">
+      <div class="modal-box max-w-2xl">
+        <h3 class="font-bold text-lg mb-4">搜索</h3>
+        <div class="form-control mb-4">
+          <div class="join w-full">
+            <input
+              v-model="searchQuery"
+              type="text"
+              class="input input-bordered join-item flex-1"
+              placeholder="输入搜索关键词..."
+              @input="debouncedSearch"
+            />
+            <button
+              class="btn btn-neutral join-item"
+              :disabled="searching"
+            >
+              搜索
+            </button>
+          </div>
+        </div>
+        <div class="max-h-96 overflow-y-auto">
+          <div v-if="searching" class="flex items-center justify-center py-8">
+            <span class="loading loading-spinner loading-lg text-neutral"></span>
+          </div>
+          <div v-else-if="searchResults.length === 0 && searchQuery" class="text-center py-8 text-base-content/50">
+            未找到相关笔记
+          </div>
+          <div v-else-if="searchResults.length === 0 && !searchQuery" class="text-center py-8 text-base-content/50">
+            请输入搜索关键词
+          </div>
+          <div v-else class="space-y-2">
+            <div
+              v-for="item in searchResults"
+              :key="item.id"
+              @click="handleSearchResultClick(item)"
+              class="p-3 rounded-lg border border-base-300 hover:border-base-content hover:shadow-md cursor-pointer transition-all"
+            >
+              <!-- 笔记类型 -->
+              <template v-if="item.type === 'note'">
+                <div class="flex items-start gap-2">
+                  <FileText class="w-5 h-5 text-base-content/30 shrink-0 mt-0.5" />
+                  <div class="flex-1 min-w-0">
+                    <div class="font-semibold text-sm truncate">{{ item.title || '无标题' }}</div>
+                    <div v-if="item.matchReasons && item.matchReasons.length" class="mt-1 flex flex-wrap gap-1">
+                      <span v-for="reason in item.matchReasons" :key="reason" class="badge badge-neutral badge-xs">{{ reason }}匹配</span>
+                    </div>
+                    <div class="flex items-center gap-2 mt-1">
+                      <span class="text-[10px] text-base-content/60">
+                        {{ item.owner?.username || '未知用户' }}
+                      </span>
+                      <span v-if="item.channel_id" class="badge badge-ghost badge-xs">频道笔记</span>
+                    </div>
+                    <div v-if="item.tags" class="mt-1 flex flex-wrap gap-1">
+                      <span v-for="tag in parseTags(item.tags)" :key="tag" class="badge badge-ghost badge-xs">{{ tag }}</span>
+                    </div>
+                    <div class="text-[10px] text-base-content/40 mt-1">
+                      {{ item.updated_at ? new Date(item.updated_at).toLocaleString() : '' }}
+                    </div>
+                  </div>
+                </div>
+              </template>
+              <!-- 频道类型 -->
+              <template v-else-if="item.type === 'channel'">
+                <div class="flex items-start gap-2">
+                  <Hash class="w-5 h-5 text-base-content/30 shrink-0 mt-0.5" />
+                  <div class="flex-1 min-w-0">
+                    <div class="font-semibold text-sm truncate">{{ item.name }}</div>
+                    <div v-if="item.matchReasons && item.matchReasons.length" class="mt-1 flex flex-wrap gap-1">
+                      <span v-for="reason in item.matchReasons" :key="reason" class="badge badge-neutral badge-xs">{{ reason }}匹配</span>
+                    </div>
+                    <div v-if="item.description" class="text-xs text-base-content/60 truncate mt-1">
+                      {{ item.description }}
+                    </div>
+                    <div v-if="item.tags" class="mt-1 flex flex-wrap gap-1">
+                      <span v-for="tag in parseTags(item.tags)" :key="tag" class="badge badge-ghost badge-xs">{{ tag }}</span>
+                    </div>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+        <div class="modal-action">
+          <button class="btn" @click="closeSearch">关闭</button>
+        </div>
+      </div>
+    </dialog>
   </div>
 </template>
 
@@ -378,7 +473,7 @@
 import { ref, onMounted, onBeforeUnmount, watch, computed, reactive, provide } from 'vue';
 import { useAuthStore } from '../stores/auth';
 import { useRoute, useRouter } from 'vue-router';
-import { Plus, FileText, Hash, Settings, User, Home, Bell, LogOut, LogIn } from 'lucide-vue-next';
+import { Plus, FileText, Hash, Settings, User, Home, Bell, LogOut, LogIn, Search } from 'lucide-vue-next';
 import api from '../api/axios';
 import Sidebar from '../components/Sidebar.vue';
 import MobileDrawer from '../components/MobileDrawer.vue';
@@ -432,6 +527,10 @@ const autoRefreshInterval = ref(null);
 const channelViewMode = ref('chat');
 const channelHeaderBridge = reactive({ openFiles: null });
 const currentChannel = ref(null);
+const showSearchModal = ref(false);
+const searchQuery = ref('');
+const searchResults = ref([]);
+const searching = ref(false);
 
 const isChannelRoute = computed(() => route.name === 'channel');
 
@@ -484,6 +583,117 @@ provide('channelHeaderBridge', channelHeaderBridge);
 const openChannelFiles = () => {
   if (channelHeaderBridge.openFiles) {
     channelHeaderBridge.openFiles();
+  }
+};
+
+const openSearch = () => {
+  showSearchModal.value = true;
+  searchQuery.value = '';
+  searchResults.value = [];
+};
+
+const closeSearch = () => {
+  showSearchModal.value = false;
+  searchQuery.value = '';
+  searchResults.value = [];
+};
+
+const handleSearch = async () => {
+  if (!searchQuery.value.trim()) {
+    searchResults.value = [];
+    return;
+  }
+
+  searching.value = true;
+  try {
+    const query = searchQuery.value.trim().toLowerCase();
+    const [notesRes, channelsRes] = await Promise.all([
+      api.get('/notes/search', { params: { q: searchQuery.value.trim() } }),
+      api.get('/channels') // 获取所有频道
+    ]);
+
+    const results = [];
+
+    // 处理笔记搜索结果
+    (notesRes.data || []).forEach(note => {
+      const reasons = [];
+      if (note.title && note.title.toLowerCase().includes(query)) {
+        reasons.push('标题');
+      }
+      if (note.content && note.content.toLowerCase().includes(query)) {
+        reasons.push('内容');
+      }
+      if (note.tags && note.tags.toLowerCase().includes(query)) {
+        reasons.push('标签');
+      }
+      results.push({
+        type: 'note',
+        ...note,
+        matchReasons: reasons
+      });
+    });
+
+    // 处理频道搜索结果
+    (channelsRes.data || []).forEach(channel => {
+      const reasons = [];
+      if (channel.name && channel.name.toLowerCase().includes(query)) {
+        reasons.push('名称');
+      }
+      if (channel.description && channel.description.toLowerCase().includes(query)) {
+        reasons.push('描述');
+      }
+      if (channel.tags && channel.tags.toLowerCase().includes(query)) {
+        reasons.push('标签');
+      }
+      // 只有匹配的频道才添加到结果中
+      if (reasons.length > 0) {
+        results.push({
+          type: 'channel',
+          ...channel,
+          matchReasons: reasons
+        });
+      }
+    });
+
+    searchResults.value = results;
+  } catch (err) {
+    if (notification && notification.value?.showNotification) {
+      notification.value.showNotification(err.response?.data?.error || '搜索失败', 'error');
+    }
+    searchResults.value = [];
+  } finally {
+    searching.value = false;
+  }
+};
+
+// 防抖函数
+let searchTimeout = null;
+const debouncedSearch = () => {
+  if (searchTimeout) {
+    clearTimeout(searchTimeout);
+  }
+  searchTimeout = setTimeout(() => {
+    handleSearch();
+  }, 300);
+};
+
+const parseTags = (value) =>
+  String(value || '')
+    .split(',')
+    .map((tag) => tag.trim())
+    .filter((tag) => tag.length > 0);
+
+const openSearchResult = (note) => {
+  closeSearch();
+  router.push({ name: 'note-editor', params: { id: note.id } });
+};
+
+const handleSearchResultClick = (item) => {
+  closeSearch();
+  if (item.type === 'note') {
+    router.push({ name: 'note-editor', params: { id: item.id } });
+  } else if (item.type === 'channel') {
+    router.push({ name: 'channel', params: { id: item.id } });
   }
 };
 

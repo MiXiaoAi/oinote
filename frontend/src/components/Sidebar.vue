@@ -397,9 +397,9 @@
                   <td>{{ user.username }}</td>
                   <td>{{ user.nickname || '-' }}</td>
                   <td>
-                    <select class="select select-bordered select-xs w-24" 
+                    <select class="select select-bordered select-xs w-24"
                             @change="updateUserRole(user.id, $event.target.value)"
-                            :disabled="updatingRole === user.id">
+                            :disabled="updatingRole === user.id || user.id === authStore.user?.id">
                       <option value="member" :selected="user.role === 'member'">普通用户</option>
                       <option value="admin" :selected="user.role === 'admin'">管理员</option>
                     </select>
@@ -440,8 +440,8 @@
                   <td>{{ note.title || '无标题' }}</td>
                   <td>{{ note.owner?.nickname || note.owner?.username || '-' }}</td>
                   <td>
-                    <button v-if="note.channel_id" class="badge badge-success badge-sm">频道笔记</button>
-                    <button v-else class="badge badge-ghost badge-sm">个人笔记</button>
+                    <button v-if="note.channel_id" class="badge badge-success badge-sm rounded-md text-white">频道笔记</button>
+                    <button v-else class="badge badge-ghost badge-sm rounded-md">个人笔记</button>
                   </td>
                   <td>{{ formatDate(note.created_at) }}</td>
                   <td>
@@ -488,7 +488,7 @@
                   <td>{{ channel.owner?.nickname || channel.owner?.username || '-' }}</td>
                   <td>{{ channel.member_count || 0 }}</td>
                   <td>
-                    <button @click="toggleChannelPublic(channel)" class="btn btn-xs" :class="channel.is_public ? 'btn-success' : 'btn-primary'" style="color: white;">
+                    <button @click="toggleChannelPublic(channel)" class="btn btn-xs" :class="channel.is_public ? 'btn-success' : 'btn-warning'" style="color: white;">
                       {{ channel.is_public ? '公开' : '私密' }}
                     </button>
                   </td>
@@ -894,6 +894,12 @@ const deleteChannel = async (channelId) => {
 };
 
 const updateUserRole = async (userId, role) => {
+  // 检查是否尝试更改自己的角色
+  if (userId === authStore.user?.id) {
+    if (notification) notification.showNotification('不能更改自己的角色', 'error');
+    return;
+  }
+
   updatingRole.value = userId;
   try {
     await api.put(`/admin/users/${userId}/role`, { role });

@@ -191,20 +191,63 @@ oinote/
 - `created_at` - 创建时间
 - `updated_at` - 更新时间
 
-## API 路由
+### API 路由
 
-### 公共路由（无需认证）
+#### 公共路由（无需认证）
 - `POST /api/register` - 用户注册
-- `POST /api/login` - 用户登录
+- `POST /api/login` - 用户登录（细化错误提示）
 - `POST /api/auth/change-password` - 修改密码
 - `GET /api/public/notes` - 获取公开笔记
 
-### 可选认证路由（访客或登录用户）
+#### 可选认证路由（访客或登录用户）
+- `GET /api/notes/search` - 搜索笔记和频道
 - `GET /api/public/channels` - 获取公开频道
 - `GET /api/channels/:id` - 获取频道详情
 - `GET /api/channels/:id/messages` - 获取频道消息
 - `GET /api/notes/:id` - 获取笔记详情
 - `GET /api/notes` - 获取笔记列表
+
+#### 私有路由（需要登录）
+- `GET /api/me` - 获取当前用户信息
+- `PUT /api/me` - 更新当前用户信息
+- `GET /api/channels` - 获取用户的频道列表
+- `POST /api/channels` - 创建频道
+- `PUT /api/channels/:id` - 更新频道
+- `DELETE /api/channels/:id` - 删除频道
+- `POST /api/channels/:id/messages` - 发送消息
+- `DELETE /api/channels/:id/messages/:messageId` - 删除消息
+- `PUT /api/channels/:id/messages/:messageId/highlight` - 高亮消息
+- `POST /api/channels/invite` - 邀请用户
+- `DELETE /api/channels/:id/members/:userId` - 移除成员
+- `POST /api/channels/:id/join` - 申请加入频道
+- `POST /api/channels/approvals` - 处理成员申请
+- `GET /api/channels/approvals/pending` - 获取待审批列表
+- `POST /api/channels/approvals/:id/accept` - 接受邀请
+- `DELETE /api/channels/approvals/:id` - 拒绝申请
+- `GET /api/notes` - 获取笔记列表
+- `POST /api/notes` - 创建笔记
+- `PUT /api/notes/:id` - 更新笔记
+- `DELETE /api/notes/:id` - 删除笔记
+- `POST /api/upload` - 上传文件
+- `GET /media/*` - 获取媒体文件（支持 Range 请求）
+- `/uploads/*` - 静态文件服务
+- `GET /ws` - WebSocket 连接（需传递 userId 参数）
+
+#### 管理员路由
+- `GET /api/admin/ai-config` - 获取 AI 配置
+- `PUT /api/admin/ai-config` - 更新 AI 配置
+- `GET /api/admin/stats` - 获取系统统计
+- `GET /api/admin/users` - 获取所有用户
+- `PUT /api/admin/users/:id/role` - 更新用户角色
+- `DELETE /api/admin/users/:id` - 删除用户
+- `GET /api/admin/notes` - 获取所有笔记
+- `DELETE /api/admin/notes/:id` - 管理员删除笔记
+- `GET /api/admin/channels` - 获取所有频道
+- `PUT /api/admin/channels/:id/public` - 切换频道公开状态
+
+#### AI 功能路由
+- `POST /api/ai/summarize` - AI 总结笔记
+- `POST /api/ai/polish` - AI 润色笔记
 
 ## 前端路由
 
@@ -212,12 +255,12 @@ oinote/
 - `/` - 首页（公开频道和笔记）
 - `/notes` - 笔记列表
 - `/channels` - 频道列表
-- `/channel/:id` - 频道详情
+- `/channel/:id` - 频道详情（聊天/笔记模式切换）
 - `/note/:id?` - 笔记编辑器
 - `/approvals` - 审批页面（需要登录）
 
 ### 认证路由
-- `/login` - 登录页
+- `/login` - 登录页（含修改密码功能）
 - `/register` - 注册页
 
 ## 功能介绍
@@ -230,6 +273,7 @@ oinote/
 - 图片拖拽上传和粘贴上传
 - 图片右键菜单编辑和删除
 - 图片可调整大小
+- 频道笔记管理（右键菜单管理功能）
 
 ### 频道协作
 - 创建公开或私有频道
@@ -238,6 +282,15 @@ oinote/
 - 成员管理和权限控制
 - 消息高亮功能
 - 频道成员申请和审批
+- 频道视图模式切换（聊天/笔记）
+
+### 全局搜索
+- 实时搜索（输入时自动搜索）
+- 搜索范围：笔记和频道
+- 搜索字段：标题、内容、标签
+- 显示匹配原因（标题匹配、内容匹配、标签匹配）
+- 笔记搜索结果显示：标题、作者、是否频道笔记、标签、更新时间
+- 频道搜索结果显示：名称、描述、标签
 
 ### 用户系统
 - 用户注册和登录
@@ -246,11 +299,14 @@ oinote/
 - 密码修改功能
 - 细化的错误提示（用户名不存在/密码错误）
 - JWT令牌认证
+- 用户角色管理（管理员可更改用户角色）
 
-### 访客模式
-- 无需登录查看公开内容
-- 简化的用户界面
-- 引导功能和登录提示
+### 后台管理（仅管理员）
+- 系统统计信息
+- 用户管理（查看、更改角色、删除）
+- 笔记管理（查看、删除）
+- 频道管理（查看、切换公开状态、删除）
+- AI 配置管理（OpenAI API 设置）
 
 ## 开发指南
 
