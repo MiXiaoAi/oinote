@@ -10,28 +10,20 @@ import (
 	handlers "github.com/MiXiaoAi/oinote/backend/api"
 	ws "github.com/MiXiaoAi/oinote/backend/internal/websocket"
 	"github.com/MiXiaoAi/oinote/backend/internal/middleware"
-	"github.com/MiXiaoAi/oinote/backend/internal/models"
 	"github.com/MiXiaoAi/oinote/backend/config"
-	"github.com/glebarez/sqlite"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/websocket/v2"
-	"gorm.io/gorm"
 )
 
 func main() {
 	// 初始化数据库
-	db, err := gorm.Open(sqlite.Open("data/oinote.db"), &gorm.Config{})
-	if err != nil {
-		log.Fatal("无法连接数据库")
+	if err := config.Connect(); err != nil {
+		log.Fatal("无法连接数据库:", err)
 	}
 
-	// 设置 config.DB 以供中间件使用
-	config.DB = db
-
-	// 自动迁移模式
-	db.AutoMigrate(&models.User{}, &models.Channel{}, &models.ChannelMember{}, &models.Note{}, &models.Attachment{}, &models.ChannelMessage{}, &models.AIConfig{})
+	db := config.DB
 
 	// 初始化 WebSocket Hub
 	wsHub := ws.NewHub()
@@ -112,6 +104,7 @@ func main() {
 	// 公共路由 (无需登录)
 	r.Post("/register", authHandler.Register)
 	r.Post("/login", authHandler.Login)
+	r.Post("/auth/change-password", authHandler.ChangePassword)
 	r.Get("/public/notes", noteHandler.GetPublicNotes)
 
 	// 可选认证路由 (可选登录，支持访客和登录用户访问)

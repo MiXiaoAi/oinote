@@ -196,6 +196,7 @@ oinote/
 ### 公共路由（无需认证）
 - `POST /api/register` - 用户注册
 - `POST /api/login` - 用户登录
+- `POST /api/auth/change-password` - 修改密码
 - `GET /api/public/notes` - 获取公开笔记
 
 ### 可选认证路由（访客或登录用户）
@@ -204,33 +205,6 @@ oinote/
 - `GET /api/channels/:id/messages` - 获取频道消息
 - `GET /api/notes/:id` - 获取笔记详情
 - `GET /api/notes` - 获取笔记列表
-
-### 私有路由（需要登录）
-- `GET /api/me` - 获取当前用户信息
-- `PUT /api/me` - 更新当前用户信息
-- `GET /api/channels` - 获取用户的频道列表
-- `POST /api/channels` - 创建频道
-- `PUT /api/channels/:id` - 更新频道
-- `DELETE /api/channels/:id` - 删除频道
-- `POST /api/channels/:id/messages` - 发送消息
-- `DELETE /api/channels/:id/messages/:messageId` - 删除消息
-- `PUT /api/channels/:id/messages/:messageId/highlight` - 高亮消息
-- `POST /api/channels/invite` - 邀请用户
-- `DELETE /api/channels/:id/members/:userId` - 移除成员
-- `POST /api/channels/:id/join` - 申请加入频道
-- `POST /api/channels/approvals` - 处理成员申请
-- `GET /api/channels/approvals/pending` - 获取待审批列表
-- `POST /api/channels/approvals/:id/accept` - 接受邀请
-- `DELETE /api/channels/approvals/:id` - 拒绝申请
-- `GET /api/notes` - 获取笔记列表
-- `POST /api/notes` - 创建笔记
-- `PUT /api/notes/:id` - 更新笔记
-- `DELETE /api/notes/:id` - 删除笔记
-- `GET /api/notes/search` - 搜索笔记
-- `POST /api/upload` - 上传文件
-- `GET /media/*` - 获取媒体文件（支持 Range 请求）
-- `/uploads/*` - 静态文件服务
-- `GET /ws` - WebSocket 连接（需传递 userId 参数）
 
 ## 前端路由
 
@@ -269,6 +243,8 @@ oinote/
 - 用户注册和登录
 - 个人资料管理
 - 头像上传和自定义
+- 密码修改功能
+- 细化的错误提示（用户名不存在/密码错误）
 - JWT令牌认证
 
 ### 访客模式

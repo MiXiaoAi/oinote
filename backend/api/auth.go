@@ -84,11 +84,11 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 
 	var user models.User
 	if err := h.DB.Where("username = ?", input.Username).First(&user).Error; err != nil {
-		return c.Status(401).JSON(fiber.Map{"error": "用户名或密码错误"})
+		return c.Status(401).JSON(fiber.Map{"error": "用户名不存在"})
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password)); err != nil {
-		return c.Status(401).JSON(fiber.Map{"error": "用户名或密码错误"})
+		return c.Status(401).JSON(fiber.Map{"error": "密码错误"})
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
@@ -283,4 +283,47 @@ func (h *AuthHandler) UpdateMe(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(user)
+}
+
+// ChangePassword 修改密码
+func (h *AuthHandler) ChangePassword(c *fiber.Ctx) error {
+	type ChangePasswordInput struct {
+		Username       string `json:"username"`
+		CurrentPassword string `json:"current_password"`
+		NewPassword     string `json:"new_password"`
+	}
+	var input ChangePasswordInput
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "输入数据无效"})
+	}
+
+	// 查找用户
+	var user models.User
+	if err := h.DB.Where("username = ?", input.Username).First(&user).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "用户名不存在"})
+	}
+
+	// 验证当前密码
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.CurrentPassword)); err != nil {
+		return c.Status(401).JSON(fiber.Map{"error": "当前密码错误"})
+	}
+
+	// 验证新密码长度
+	if len(input.NewPassword) < 6 {
+		return c.Status(400).JSON(fiber.Map{"error": "新密码至少需要6个字符"})
+	}
+
+	// 加密新密码
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.NewPassword), 10)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "密码加密失败"})
+	}
+
+	// 更新密码
+	user.Password = string(hashedPassword)
+	if err := h.DB.Save(&user).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "密码修改失败"})
+	}
+
+	return c.JSON(fiber.Map{"message": "密码修改成功"})
 }

@@ -8,11 +8,11 @@
         <form @submit.prevent="handleLogin" class="space-y-4">
           <div class="form-control">
             <label class="label"><span class="label-text">用户名</span></label>
-            <input v-model="username" type="text" class="input input-bordered" required />
+            <input v-model="username" type="text" class="input input-bordered w-full" required />
           </div>
           <div class="form-control">
             <label class="label"><span class="label-text">密码</span></label>
-            <input v-model="password" type="password" class="input input-bordered" required />
+            <input v-model="password" type="password" class="input input-bordered w-full" required />
           </div>
           <div class="form-control mt-6">
             <button class="btn btn-neutral w-full" :disabled="loading">
@@ -46,59 +46,59 @@
             <label class="label">
               <span class="label-text font-medium">用户名</span>
             </label>
-            <input 
-              v-model="changeUsername" 
-              type="text" 
-              placeholder="请输入用户名" 
-              class="input input-bordered input-sm focus:ring-2 focus:ring-neutral" 
-              required 
+            <input
+              v-model="changeUsername"
+              type="text"
+              placeholder="请输入用户名"
+              class="input input-bordered input-sm w-full focus:ring-2 focus:ring-neutral"
+              required
             />
           </div>
-          
+
           <div class="form-control">
             <label class="label">
               <span class="label-text font-medium">当前密码</span>
             </label>
-            <input 
-              v-model="currentPassword" 
-              type="password" 
-              placeholder="请输入当前密码" 
-              class="input input-bordered input-sm focus:ring-2 focus:ring-neutral" 
-              required 
+            <input
+              v-model="currentPassword"
+              type="password"
+              placeholder="请输入当前密码"
+              class="input input-bordered input-sm w-full focus:ring-2 focus:ring-neutral"
+              required
             />
           </div>
-          
+
           <div class="form-control">
             <label class="label">
               <span class="label-text font-medium">新密码</span>
             </label>
-            <input 
-              v-model="newPassword" 
-              type="password" 
-              placeholder="请输入新密码" 
-              class="input input-bordered input-sm focus:ring-2 focus:ring-neutral" 
-              required 
+            <input
+              v-model="newPassword"
+              type="password"
+              placeholder="请输入新密码"
+              class="input input-bordered input-sm w-full focus:ring-2 focus:ring-neutral"
+              required
             />
           </div>
-          
+
           <div class="form-control">
             <label class="label">
               <span class="label-text font-medium">确认新密码</span>
             </label>
-            <input 
-              v-model="confirmPassword" 
-              type="password" 
-              placeholder="请再次输入新密码" 
-              class="input input-bordered input-sm focus:ring-2 focus:ring-neutral" 
-              required 
+            <input
+              v-model="confirmPassword"
+              type="password"
+              placeholder="请再次输入新密码"
+              class="input input-bordered input-sm w-full focus:ring-2 focus:ring-neutral"
+              required
             />
           </div>
-          
+
           <div v-if="passwordError" class="alert alert-error text-sm py-2">
             <AlertTriangle class="stroke-current shrink-0 h-4 w-4" />
             <span>{{ passwordError }}</span>
           </div>
-          
+
           <div class="modal-action pt-4">
             <button type="button" @click="closePasswordModal" class="btn btn-outline btn-sm" :disabled="changingPassword">
               取消
@@ -114,7 +114,7 @@
 
     <!-- Toast Notification -->
     <div v-if="notification" class="toast toast-top toast-center z-50">
-      <div :class="`alert alert-${notification.type}`">
+      <div :class="`alert ${notification.type === 'success' ? 'bg-success text-white' : 'alert-' + notification.type}`">
         <span>{{ notification.message }}</span>
       </div>
     </div>

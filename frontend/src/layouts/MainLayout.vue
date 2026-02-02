@@ -765,6 +765,49 @@ const handleNoteInfoChanged = (payload) => {
   currentNoteInfo.channelName = payload.channelName || '';
 };
 
+// WebSocket 消息处理
+const handleWsMessage = (message) => {
+  if (message.type === 'note') {
+    if (message.action === 'create') {
+      // 添加新笔记
+      fetchNotes();
+    } else if (message.action === 'update') {
+      // 更新笔记
+      applyPersonalNotePatch({
+        id: message.data.id,
+        title: message.data.title,
+        is_public: message.data.is_public,
+        tags: message.data.tags
+      });
+    } else if (message.action === 'delete') {
+      // 删除笔记（确保类型一致的比较）
+      const deleteId = String(message.data.id);
+      personalNotes.value = personalNotes.value.filter(n => String(n.id) !== deleteId);
+      if (route.name === 'note-editor' && route.params.id == message.data.id) {
+        router.push('/');
+      }
+    }
+  } else if (message.type === 'channel') {
+    if (message.action === 'create') {
+      // 添加新频道
+      fetchChannels();
+    } else if (message.action === 'update') {
+      // 更新频道
+      const channel = userChannels.value.find(c => c.id === message.data.id);
+      if (channel) {
+        Object.assign(channel, message.data);
+      }
+    } else if (message.action === 'delete') {
+      // 删除频道（确保类型一致的比较）
+      const deleteId = String(message.data.id);
+      userChannels.value = userChannels.value.filter(c => String(c.id) !== deleteId);
+      if (route.name === 'channel' && route.params.id == message.data.id) {
+        router.push('/');
+      }
+    }
+  }
+};
+
 onMounted(() => {
   // 如果已登录（有token），恢复用户状态并连接 WebSocket
   if (localStorage.getItem('token') && authStore.isAuthenticated) {
@@ -787,49 +830,6 @@ onMounted(() => {
       }
     }
   });
-
-  // WebSocket 消息处理
-  const handleWsMessage = (message) => {
-    if (message.type === 'note') {
-      if (message.action === 'create') {
-        // 添加新笔记
-        fetchNotes();
-      } else if (message.action === 'update') {
-        // 更新笔记
-        applyPersonalNotePatch({
-          id: message.data.id,
-          title: message.data.title,
-          is_public: message.data.is_public,
-          tags: message.data.tags
-        });
-      } else if (message.action === 'delete') {
-        // 删除笔记（确保类型一致的比较）
-        const deleteId = String(message.data.id);
-        personalNotes.value = personalNotes.value.filter(n => String(n.id) !== deleteId);
-        if (route.name === 'note-editor' && route.params.id == message.data.id) {
-          router.push('/');
-        }
-      }
-    } else if (message.type === 'channel') {
-      if (message.action === 'create') {
-        // 添加新频道
-        fetchChannels();
-      } else if (message.action === 'update') {
-        // 更新频道
-        const channel = userChannels.value.find(c => c.id === message.data.id);
-        if (channel) {
-          Object.assign(channel, message.data);
-        }
-      } else if (message.action === 'delete') {
-        // 删除频道（确保类型一致的比较）
-        const deleteId = String(message.data.id);
-        userChannels.value = userChannels.value.filter(c => String(c.id) !== deleteId);
-        if (route.name === 'channel' && route.params.id == message.data.id) {
-          router.push('/');
-        }
-      }
-    }
-  };
 
   // 等待 WebSocket 连接建立后再设置监听器
   const setupWebSocketListeners = () => {

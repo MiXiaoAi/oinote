@@ -12,17 +12,17 @@ import (
 
 var DB *gorm.DB
 
-func Connect() {
+func Connect() error {
 	// 确保 data 目录存在
 	if err := os.MkdirAll("data", 0755); err != nil {
-		log.Fatal("无法创建 data 目录:", err)
+		return err
 	}
 
 	var err error
 	// 启用外键约束
 	DB, err = gorm.Open(sqlite.Open("data/oinote.db?_pragma=foreign_keys(1)"), &gorm.Config{})
 	if err != nil {
-		log.Fatal("无法连接数据库")
+		return err
 	}
 
 	// 自动迁移
@@ -36,7 +36,7 @@ func Connect() {
 		&models.AIConfig{},
 	)
 	if err != nil {
-		log.Fatal("数据库迁移失败:", err)
+		return err
 	}
 
 	// 创建默认 admin 用户（如果用户表为空）
@@ -45,7 +45,7 @@ func Connect() {
 	if userCount == 0 {
 		hashedPassword, err := bcrypt.GenerateFromPassword([]byte("admin"), bcrypt.DefaultCost)
 		if err != nil {
-			log.Fatal("无法生成密码哈希:", err)
+			return err
 		}
 
 		adminUser := models.User{
@@ -56,8 +56,9 @@ func Connect() {
 		}
 
 		if err := DB.Create(&adminUser).Error; err != nil {
-			log.Fatal("无法创建默认管理员用户:", err)
+			return err
 		}
 		log.Println("已创建默认管理员用户: admin / admin")
 	}
+	return nil
 }

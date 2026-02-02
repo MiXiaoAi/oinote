@@ -8,15 +8,15 @@
         <form @submit.prevent="handleRegister" class="space-y-4">
           <div class="form-control">
             <label class="label"><span class="label-text">用户名</span></label>
-            <input v-model="username" type="text" class="input input-bordered" required />
+            <input v-model="username" type="text" class="input input-bordered w-full" required />
           </div>
           <div class="form-control">
             <label class="label"><span class="label-text">密码</span></label>
-            <input v-model="password" type="password" class="input input-bordered" required />
+            <input v-model="password" type="password" class="input input-bordered w-full" required />
           </div>
           <div class="form-control">
             <label class="label"><span class="label-text">确认密码</span></label>
-            <input v-model="confirmPassword" type="password" class="input input-bordered" required />
+            <input v-model="confirmPassword" type="password" class="input input-bordered w-full" required />
           </div>
           <div v-if="registerError" class="text-error text-sm">{{ registerError }}</div>
           <div class="form-control mt-6">
