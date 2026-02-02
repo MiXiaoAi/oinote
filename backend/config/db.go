@@ -2,6 +2,7 @@ package config
 
 import (
 	"log"
+	"os"
 
 	"github.com/MiXiaoAi/oinote/backend/internal/models"
 	"github.com/glebarez/sqlite"
@@ -12,6 +13,11 @@ import (
 var DB *gorm.DB
 
 func Connect() {
+	// 确保 data 目录存在
+	if err := os.MkdirAll("data", 0755); err != nil {
+		log.Fatal("无法创建 data 目录:", err)
+	}
+
 	var err error
 	// 启用外键约束
 	DB, err = gorm.Open(sqlite.Open("data/oinote.db?_pragma=foreign_keys(1)"), &gorm.Config{})
