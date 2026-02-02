@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"github.com/MiXiaoAi/oinote/backend/internal/models"
+	"github.com/MiXiaoAi/oinote/backend/config"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -51,5 +53,25 @@ func OptionalAuth(c *fiber.Ctx) error {
 	c.Locals("userId", uint(claims["user_id"].(float64)))
 	c.Locals("username", claims["username"].(string))
 
+	return c.Next()
+}
+
+// AdminRequired 管理员权限检查中间件
+func AdminRequired(c *fiber.Ctx) error {
+	userId := c.Locals("userId")
+	if userId == nil {
+		return c.Status(401).JSON(fiber.Map{"error": "未授权"})
+	}
+
+	var user models.User
+	if err := config.DB.First(&user, userId.(uint)).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "用户不存在"})
+	}
+
+	if user.Role != "admin" {
+		return c.Status(403).JSON(fiber.Map{"error": "需要管理员权限"})
+	}
+
+	c.Locals("user", user)
 	return c.Next()
 }

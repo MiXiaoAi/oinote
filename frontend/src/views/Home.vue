@@ -48,7 +48,7 @@
                   </div>
                 </div>
               </div>
-              <div class="text-xs text-base-content/70 line-clamp-2 mb-2" v-if="note.content">
+              <div class="text-xs text-base-content/70 mb-2" v-if="note.content" style="white-space: pre-wrap; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;">
                 {{ stripHtml(note.content) }}
               </div>
               <div v-if="note.tags" class="flex flex-wrap gap-1">
@@ -214,6 +214,13 @@ const parseTags = (value) =>
 const stripHtml = (html) => {
   const div = document.createElement('div');
   div.innerHTML = html;
+  
+  // 将块级元素转换为换行符
+  const blockElements = div.querySelectorAll('p, div, li, h1, h2, h3, h4, h5, h6, br');
+  blockElements.forEach(el => {
+    el.innerHTML = '\n' + el.innerHTML + '\n';
+  });
+  
   return div.textContent || div.innerText || '';
 };
 

@@ -140,10 +140,11 @@ func (h *NoteHandler) UpdateNote(c *fiber.Ctx) error {
 	}
 
 	type UpdateNoteInput struct {
-		Title    *string `json:"title"`
-		Content  *string `json:"content"`
-		IsPublic *bool   `json:"is_public"`
-		Tags     *string `json:"tags"`
+		Title       *string  `json:"title"`
+		Content     *string  `json:"content"`
+		IsPublic    *bool    `json:"is_public"`
+		Tags        *string  `json:"tags"`
+		LineSpacing *float64 `json:"line_spacing"`
 	}
 
 	var input UpdateNoteInput
@@ -162,6 +163,9 @@ func (h *NoteHandler) UpdateNote(c *fiber.Ctx) error {
 	}
 	if input.Tags != nil {
 		note.Tags = *input.Tags
+	}
+	if input.LineSpacing != nil {
+		note.LineSpacing = *input.LineSpacing
 	}
 
 	if err := h.DB.Save(&note).Error; err != nil {
@@ -314,4 +318,57 @@ func (h *NoteHandler) DeleteNote(c *fiber.Ctx) error {
 	})
 
 	return c.SendStatus(204)
+}
+
+// GetAllNotes 管理员获取所有笔记
+func (h *NoteHandler) GetAllNotes(c *fiber.Ctx) error {
+	var notes []models.Note
+	result := h.DB.Preload("Owner").Order("created_at DESC").Find(&notes)
+	if result.Error != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "获取笔记失败"})
+	}
+
+	// 清除密码字段
+	for i := range notes {
+		if notes[i].Owner.Password != "" {
+			notes[i].Owner.Password = ""
+		}
+	}
+
+	return c.JSON(notes)
+}
+
+// AdminDeleteNote 管理员删除笔记
+func (h *NoteHandler) AdminDeleteNote(c *fiber.Ctx) error {
+	noteId := c.Params("id")
+
+	var note models.Note
+	if err := h.DB.First(&note, noteId).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "笔记不存在"})
+	}
+
+	// 获取该笔记的所有附件
+	var attachments []models.Attachment
+	h.DB.Where("note_id = ?", note.ID).Find(&attachments)
+
+	// 删除所有附件文件
+	for _, attachment := range attachments {
+		if attachment.FilePath != "" {
+			fullPath := filepath.Join("./data", attachment.FilePath)
+			os.Remove(fullPath)
+		}
+	}
+
+	// 删除附件记录
+	h.DB.Where("note_id = ?", note.ID).Delete(&models.Attachment{})
+
+	// 删除笔记目录
+	noteDir := filepath.Join("./data/uploads/notes", "note_"+noteId)
+	os.RemoveAll(noteDir)
+
+	if err := h.DB.Delete(&note).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "删除笔记失败"})
+	}
+
+	return c.JSON(fiber.Map{"message": "删除成功"})
 }

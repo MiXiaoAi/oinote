@@ -5,17 +5,26 @@
          @click="router.push('/')">
       <FileText class="w-5 h-5 mr-2" />
       <span class="text-lg tracking-tight">oinote</span>
+      <button v-if="authStore.isAuthenticated && authStore.user?.role === 'admin'" 
+              @click.stop="showAdminPanel = true" 
+              class="ml-auto btn btn-ghost btn-xs btn-square" 
+              title="后台管理">
+        <Settings class="w-4 h-4" />
+      </button>
     </div>
 
     <!-- Navigation -->
     <div class="flex-1 overflow-y-auto custom-scrollbar px-2 space-y-4">
       <!-- Notes Section - 仅登录用户可见 -->
       <div v-if="authStore.isAuthenticated">
-        <div class="px-3 py-2 text-xs font-medium text-base-content/50 uppercase tracking-wider flex items-center justify-between leading-none hover:bg-base-300/80 transition-colors rounded -mx-2 px-2">
-          <router-link to="/notes" class="flex items-center gap-1 cursor-pointer hover:text-base-content/80 transition-colors group flex-1">
+        <div 
+          class="px-3 py-2 text-xs font-medium text-base-content/50 uppercase tracking-wider flex items-center justify-between leading-none hover:bg-base-300/80 transition-colors rounded -mx-2 px-2 cursor-pointer"
+          @click="router.push('/notes')"
+        >
+          <div class="flex items-center gap-1 hover:text-base-content/80 transition-colors group flex-1">
             <FileText class="w-3 h-3" />
             <span>笔记</span>
-          </router-link>
+          </div>
           <button
             class="btn btn-ghost btn-xs btn-square"
             @click.stop="$emit('create-note')"
@@ -45,11 +54,14 @@
 
       <!-- Channels Section - 仅登录用户可见 -->
       <div v-if="authStore.isAuthenticated">
-        <div class="px-3 py-2 text-xs font-medium text-base-content/50 uppercase tracking-wider flex items-center justify-between leading-none hover:bg-base-300/80 transition-colors rounded -mx-2 px-2">
-          <router-link to="/channels" class="flex items-center gap-1 cursor-pointer hover:text-base-content/80 transition-colors group flex-1">
+        <div 
+          class="px-3 py-2 text-xs font-medium text-base-content/50 uppercase tracking-wider flex items-center justify-between leading-none hover:bg-base-300/80 transition-colors rounded -mx-2 px-2 cursor-pointer"
+          @click="router.push('/channels')"
+        >
+          <div class="flex items-center gap-1 hover:text-base-content/80 transition-colors group flex-1">
             <Hash class="w-3 h-3" />
             <span>频道</span>
-          </router-link>
+          </div>
           <button
             class="btn btn-ghost btn-xs btn-square"
             @click.stop="$emit('create-channel')"
@@ -311,11 +323,228 @@
         </div>
       </div>
     </dialog>
+
+    <!-- Admin Panel Dialog -->
+    <dialog :open="showAdminPanel" class="modal modal-bottom sm:modal-middle">
+      <div class="modal-box max-w-2xl">
+        <h3 class="font-bold text-lg flex items-center gap-2">
+          <Settings class="w-5 h-5" />
+          后台管理
+        </h3>
+        
+        <!-- Tabs -->
+        <div class="tabs tabs-boxed mb-4">
+          <a class="tab" :class="{ 'tab-active': adminTab === 'stats' }" @click="adminTab = 'stats'; loadAdminData()">系统统计</a>
+          <a class="tab" :class="{ 'tab-active': adminTab === 'users' }" @click="adminTab = 'users'; loadAdminData()">用户管理</a>
+          <a class="tab" :class="{ 'tab-active': adminTab === 'notes' }" @click="adminTab = 'notes'; loadAdminData()">笔记管理</a>
+          <a class="tab" :class="{ 'tab-active': adminTab === 'channels' }" @click="adminTab = 'channels'; loadAdminData()">频道管理</a>
+          <a class="tab" :class="{ 'tab-active': adminTab === 'ai' }" @click="adminTab = 'ai'; openAISettings()">AI 配置</a>
+        </div>
+
+        <!-- 系统统计 Tab -->
+        <div v-if="adminTab === 'stats'" class="py-4">
+          <div v-if="loadingStats" class="flex items-center justify-center py-8">
+            <span class="loading loading-spinner loading-lg text-neutral"></span>
+          </div>
+          <div v-else class="grid grid-cols-3 gap-4">
+            <div class="stat bg-base-200 rounded-lg p-4">
+              <div class="stat-figure">
+                <Users class="w-8 h-8" />
+              </div>
+              <div class="stat-title">用户总数</div>
+              <div class="stat-value">{{ stats.user_count }}</div>
+              <div class="stat-desc">注册用户</div>
+            </div>
+            <div class="stat bg-base-200 rounded-lg p-4">
+              <div class="stat-figure">
+                <FileText class="w-8 h-8" />
+              </div>
+              <div class="stat-title">笔记总数</div>
+              <div class="stat-value">{{ stats.note_count }}</div>
+              <div class="stat-desc">创建的笔记</div>
+            </div>
+            <div class="stat bg-base-200 rounded-lg p-4">
+              <div class="stat-figure">
+                <Hash class="w-8 h-8" />
+              </div>
+              <div class="stat-title">频道总数</div>
+              <div class="stat-value">{{ stats.channel_count }}</div>
+              <div class="stat-desc">协作频道</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 用户管理 Tab -->
+        <div v-if="adminTab === 'users'" class="py-4">
+          <div v-if="loadingUsers" class="flex items-center justify-center py-8">
+            <span class="loading loading-spinner loading-lg text-neutral"></span>
+          </div>
+          <div v-else class="overflow-x-auto">
+            <table class="table table-zebra w-full">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>用户名</th>
+                  <th>昵称</th>
+                  <th>角色</th>
+                  <th>注册时间</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="user in users" :key="user.id">
+                  <td>{{ user.id }}</td>
+                  <td>{{ user.username }}</td>
+                  <td>{{ user.nickname || '-' }}</td>
+                  <td>
+                    <select class="select select-bordered select-xs w-24" 
+                            @change="updateUserRole(user.id, $event.target.value)"
+                            :disabled="updatingRole === user.id">
+                      <option value="member" :selected="user.role === 'member'">普通用户</option>
+                      <option value="admin" :selected="user.role === 'admin'">管理员</option>
+                    </select>
+                    <span v-if="updatingRole === user.id" class="loading loading-spinner loading-xs ml-2"></span>
+                  </td>
+                  <td>{{ formatDate(user.created_at) }}</td>
+                  <td>
+                    <button @click="deleteUser(user.id)" class="btn btn-xs btn-error" style="color: white;" :disabled="deletingUser === user.id">
+                      {{ deletingUser === user.id ? '删除中...' : '删除' }}
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 笔记管理 Tab -->
+        <div v-if="adminTab === 'notes'" class="py-4">
+          <div v-if="loadingNotes" class="flex items-center justify-center py-8">
+            <span class="loading loading-spinner loading-lg text-neutral"></span>
+          </div>
+          <div v-else class="overflow-x-auto">
+            <table class="table table-zebra w-full">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>标题</th>
+                  <th>作者</th>
+                  <th>类型</th>
+                  <th>创建时间</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="note in adminNotes" :key="note.id">
+                  <td>{{ note.id }}</td>
+                  <td>{{ note.title || '无标题' }}</td>
+                  <td>{{ note.owner?.nickname || note.owner?.username || '-' }}</td>
+                  <td>
+                    <button v-if="note.channel_id" class="badge badge-success badge-sm">频道笔记</button>
+                    <button v-else class="badge badge-ghost badge-sm">个人笔记</button>
+                  </td>
+                  <td>{{ formatDate(note.created_at) }}</td>
+                  <td>
+                    <button @click="deleteNote(note.id)" class="btn btn-xs btn-error" style="color: white;" :disabled="deletingNote === note.id">
+                      {{ deletingNote === note.id ? '删除中...' : '删除' }}
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div v-if="adminNotes.length === 0" class="text-center py-8 text-base-content/50">
+              暂无笔记
+            </div>
+          </div>
+        </div>
+
+        <!-- 频道管理 Tab -->
+        <div v-if="adminTab === 'channels'" class="py-4">
+          <div v-if="loadingChannels" class="flex items-center justify-center py-8">
+            <span class="loading loading-spinner loading-lg text-neutral"></span>
+          </div>
+          <div v-else class="overflow-x-auto">
+            <table class="table table-zebra w-full">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>频道名称</th>
+                  <th>所有者</th>
+                  <th>成员数</th>
+                  <th>类型</th>
+                  <th>创建时间</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="channel in adminChannels" :key="channel.id">
+                  <td>{{ channel.id }}</td>
+                  <td>
+                    <div class="flex items-center gap-2">
+                      <div class="w-3 h-3 rounded-full" :style="{ backgroundColor: channel.theme_color }"></div>
+                      {{ channel.name }}
+                    </div>
+                  </td>
+                  <td>{{ channel.owner?.nickname || channel.owner?.username || '-' }}</td>
+                  <td>{{ channel.member_count || 0 }}</td>
+                  <td>
+                    <button @click="toggleChannelPublic(channel)" class="btn btn-xs" :class="channel.is_public ? 'btn-success' : 'btn-primary'" style="color: white;">
+                      {{ channel.is_public ? '公开' : '私密' }}
+                    </button>
+                  </td>
+                  <td>{{ formatDate(channel.created_at) }}</td>
+                  <td>
+                    <button @click="deleteChannel(channel.id)" class="btn btn-xs btn-error" style="color: white;" :disabled="deletingChannel === channel.id">
+                      {{ deletingChannel === channel.id ? '删除中...' : '删除' }}
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div v-if="adminChannels.length === 0" class="text-center py-8 text-base-content/50">
+              暂无频道
+            </div>
+          </div>
+        </div>
+
+        <!-- AI 配置 Tab -->
+        <div v-if="adminTab === 'ai'" class="py-4 space-y-3">
+          <div>
+            <label class="label">
+              <span class="label-text">OpenAI URL</span>
+            </label>
+            <input v-model="aiConfig.openai_url" type="text" class="input input-bordered w-full" />
+          </div>
+          <div>
+            <label class="label">
+              <span class="label-text">API Key</span>
+            </label>
+            <input v-model="aiConfig.api_key" type="password" class="input input-bordered w-full" />
+          </div>
+          <div>
+            <label class="label">
+              <span class="label-text">Model</span>
+            </label>
+            <input v-model="aiConfig.model" type="text" class="input input-bordered w-full" />
+          </div>
+        </div>
+
+        <div class="modal-action">
+          <button class="btn" @click="showAdminPanel = false" :disabled="savingAISettings">取消</button>
+          <button v-if="adminTab === 'ai'" class="btn btn-neutral" @click="saveAISettings" :disabled="savingAISettings">
+            {{ savingAISettings ? '保存中...' : '保存' }}
+          </button>
+        </div>
+      </div>
+      <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+      </form>
+    </dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed, onBeforeUnmount, inject } from 'vue';
+import { ref, onMounted, computed, onBeforeUnmount, inject, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import { useThemeStore } from '../stores/theme';
@@ -325,7 +554,7 @@ import ManageModal from './ManageModal.vue';
 import { getFileUrl } from '../utils/urlHelper';
 import {
   Hash, FileText, Sun, Moon, LogOut, Settings,
-  Edit, Trash2, Users, Info, User, Plus, ChevronRight, Bell
+  Edit, Trash2, Users, Info, User, Plus, ChevronRight, Bell, Bot
 } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -384,6 +613,38 @@ const showManageModal = ref(false);
 const editType = ref('');
 const editingItem = ref(null);
 const showAbout = ref(false);
+const showAdminPanel = ref(false);
+const adminTab = ref('stats');
+const aiConfig = ref({
+  openai_url: '',
+  api_key: '',
+  model: ''
+});
+const savingAISettings = ref(false);
+
+// 系统统计相关
+const stats = ref({
+  user_count: 0,
+  note_count: 0,
+  channel_count: 0
+});
+const loadingStats = ref(false);
+
+// 用户管理相关
+const users = ref([]);
+const loadingUsers = ref(false);
+const updatingRole = ref(null);
+const deletingUser = ref(null);
+
+// 笔记管理相关
+const adminNotes = ref([]);
+const loadingNotes = ref(false);
+const deletingNote = ref(null);
+
+// 频道管理相关
+const adminChannels = ref([]);
+const loadingChannels = ref(false);
+const deletingChannel = ref(null);
 
 const openManageModal = () => {
   if (!contextMenuItem.value) return;
@@ -518,6 +779,217 @@ const saveSettings = async () => {
   }
 };
 
+const openAISettings = async () => {
+  if (!authStore.isAuthenticated || authStore.user?.role !== 'admin') {
+    if (notification) notification.showNotification('需要管理员权限', 'error');
+    return;
+  }
+
+  adminTab.value = 'ai';
+
+  try {
+    const res = await api.get('/admin/ai-config');
+    // 使用 nextTick 确保响应式更新
+    await new Promise(resolve => setTimeout(resolve, 0));
+    aiConfig.value = {
+      openai_url: res.data.openai_url || '',
+      api_key: res.data.api_key || '',
+      model: res.data.model || ''
+    };
+  } catch (err) {
+    console.error('AI配置加载失败:', err);
+    // 配置不存在是正常的，使用空配置
+    aiConfig.value = { openai_url: '', api_key: '', model: '' };
+  }
+  showAdminPanel.value = true;
+};
+
+const saveAISettings = async () => {
+  if (!authStore.isAuthenticated || authStore.user?.role !== 'admin') {
+    if (notification) notification.showNotification('需要管理员权限', 'error');
+    return;
+  }
+
+  savingAISettings.value = true;
+  try {
+    await api.put('/admin/ai-config', {
+      openai_url: aiConfig.value.openai_url || '',
+      api_key: aiConfig.value.api_key || '',
+      model: aiConfig.value.model || ''
+    });
+    if (notification) notification.showNotification('保存成功', 'success');
+    showAdminPanel.value = false;
+  } catch (err) {
+    if (notification) notification.showNotification(err.response?.data?.error || '保存失败', 'error');
+  } finally {
+    savingAISettings.value = false;
+  }
+};
+
+const loadStats = async () => {
+  loadingStats.value = true;
+  try {
+    const res = await api.get('/admin/stats');
+    stats.value = res.data;
+  } catch (err) {
+    if (notification) notification.showNotification('加载统计信息失败', 'error');
+  } finally {
+    loadingStats.value = false;
+  }
+};
+
+const loadUsers = async () => {
+  loadingUsers.value = true;
+  try {
+    const res = await api.get('/admin/users');
+    users.value = res.data;
+  } catch (err) {
+    if (notification) notification.showNotification('加载用户列表失败', 'error');
+  } finally {
+    loadingUsers.value = false;
+  }
+};
+
+const loadChannels = async () => {
+  loadingChannels.value = true;
+  try {
+    const res = await api.get('/admin/channels');
+    adminChannels.value = res.data;
+  } catch (err) {
+    if (notification) notification.showNotification('加载频道列表失败', 'error');
+  } finally {
+    loadingChannels.value = false;
+  }
+};
+
+const toggleChannelPublic = async (channel) => {
+  try {
+    await api.put(`/admin/channels/${channel.id}/public`, { is_public: !channel.is_public });
+    if (notification) notification.showNotification(channel.is_public ? '已设为私密' : '已设为公开', 'success');
+    // 重新加载频道列表
+    await loadChannels();
+  } catch (err) {
+    if (notification) notification.showNotification(err.response?.data?.error || '切换失败', 'error');
+  }
+};
+
+const deleteChannel = async (channelId) => {
+  if (!confirm('确定要删除这个频道吗？此操作不可恢复！')) {
+    return;
+  }
+
+  deletingChannel.value = channelId;
+  try {
+    await api.delete(`/channels/${channelId}`);
+    if (notification) notification.showNotification('删除成功', 'success');
+    // 重新加载频道列表
+    await loadChannels();
+    // 重新加载统计信息
+    await loadStats();
+  } catch (err) {
+    if (notification) notification.showNotification(err.response?.data?.error || '删除失败', 'error');
+  } finally {
+    deletingChannel.value = null;
+  }
+};
+
+const updateUserRole = async (userId, role) => {
+  updatingRole.value = userId;
+  try {
+    await api.put(`/admin/users/${userId}/role`, { role });
+    if (notification) notification.showNotification('角色更新成功', 'success');
+    // 重新加载用户列表
+    await loadUsers();
+  } catch (err) {
+    if (notification) notification.showNotification(err.response?.data?.error || '更新失败', 'error');
+  } finally {
+    updatingRole.value = null;
+  }
+};
+
+const deleteUser = async (userId) => {
+  if (!confirm('确定要删除这个用户吗？此操作不可恢复！')) {
+    return;
+  }
+
+  deletingUser.value = userId;
+  try {
+    await api.delete(`/admin/users/${userId}`);
+    if (notification) notification.showNotification('删除成功', 'success');
+    // 重新加载用户列表
+    await loadUsers();
+    // 重新加载统计信息
+    await loadStats();
+  } catch (err) {
+    if (notification) notification.showNotification(err.response?.data?.error || '删除失败', 'error');
+  } finally {
+    deletingUser.value = null;
+  }
+};
+
+const loadNotes = async () => {
+  loadingNotes.value = true;
+  try {
+    const res = await api.get('/admin/notes');
+    adminNotes.value = res.data;
+  } catch (err) {
+    if (notification) notification.showNotification('加载笔记列表失败', 'error');
+  } finally {
+    loadingNotes.value = false;
+  }
+};
+
+const deleteNote = async (noteId) => {
+  if (!confirm('确定要删除这个笔记吗？此操作不可恢复！')) {
+    return;
+  }
+
+  deletingNote.value = noteId;
+  try {
+    await api.delete(`/admin/notes/${noteId}`);
+    if (notification) notification.showNotification('删除成功', 'success');
+    // 重新加载笔记列表
+    await loadNotes();
+    // 重新加载统计信息
+    await loadStats();
+  } catch (err) {
+    if (notification) notification.showNotification(err.response?.data?.error || '删除失败', 'error');
+  } finally {
+    deletingNote.value = null;
+  }
+};
+
+const formatDate = (dateStr) => {
+  if (!dateStr) return '-';
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('zh-CN');
+};
+
+const loadAdminData = async () => {
+  if (adminTab.value === 'stats') {
+    await loadStats();
+  } else if (adminTab.value === 'users') {
+    await loadUsers();
+  } else if (adminTab.value === 'notes') {
+    await loadNotes();
+  } else if (adminTab.value === 'channels') {
+    await loadChannels();
+  }
+};
+
+// 监听 adminTab 变化，加载相应数据
+const adminTabChanged = () => {
+  if (adminTab.value === 'stats') {
+    loadStats();
+  } else if (adminTab.value === 'users') {
+    loadUsers();
+  } else if (adminTab.value === 'notes') {
+    loadNotes();
+  } else if (adminTab.value === 'channels') {
+    loadChannels();
+  }
+};
+
 const toggleTheme = () => {
   themeStore.toggleTheme();
 };
@@ -574,6 +1046,18 @@ const handleDelete = () => {
 // Global click listener to close context menu
 onMounted(() => {
   window.addEventListener('click', closeContextMenu);
+});
+
+// 监听 adminTab 变化
+watch(adminTab, () => {
+  adminTabChanged();
+});
+
+// 监听 showAdminPanel 变化
+watch(showAdminPanel, (newVal) => {
+  if (newVal) {
+    adminTabChanged();
+  }
 });
 
 onBeforeUnmount(() => {

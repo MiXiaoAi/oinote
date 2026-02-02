@@ -106,6 +106,61 @@ func GetUserChannels(c *fiber.Ctx) error {
 	return c.JSON(channels)
 }
 
+// GetAllChannels 管理员获取所有频道
+func GetAllChannels(c *fiber.Ctx) error {
+	var channels []models.Channel
+	config.DB.Preload("Owner").Find(&channels)
+
+	// 为每个频道添加成员数
+	for i := range channels {
+		var memberCount int64
+		config.DB.Model(&models.ChannelMember{}).Where("channel_id = ? AND status = ?", channels[i].ID, models.MemberStatusActive).Count(&memberCount)
+		channels[i].MemberCount = int(memberCount)
+	}
+
+	return c.JSON(channels)
+}
+
+// AdminToggleChannelPublic 管理员切换频道公开/私密状态
+func AdminToggleChannelPublic(c *fiber.Ctx) error {
+	// 权限检查：只有管理员可以操作
+	userId := c.Locals("userId")
+	if userId == nil {
+		return c.Status(401).JSON(fiber.Map{"error": "未授权"})
+	}
+
+	var user models.User
+	if err := config.DB.First(&user, userId).Error; err != nil || user.Role != models.RoleAdmin {
+		return c.Status(403).JSON(fiber.Map{"error": "无权操作"})
+	}
+
+	channelId := c.Params("id")
+
+	type TogglePublicInput struct {
+		IsPublic bool `json:"is_public"`
+	}
+
+	var input TogglePublicInput
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "输入数据无效"})
+	}
+
+	var channel models.Channel
+	if err := config.DB.First(&channel, channelId).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "频道不存在"})
+	}
+
+	channel.IsPublic = input.IsPublic
+	if err := config.DB.Save(&channel).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "更新失败"})
+	}
+
+	// 重新加载完整的频道信息，包括 Owner
+	config.DB.Preload("Owner").First(&channel, channel.ID)
+
+	return c.JSON(channel)
+}
+
 // SearchPublicChannels 搜索公开频道
 func SearchPublicChannels(c *fiber.Ctx) error {
 	query := c.Query("q")

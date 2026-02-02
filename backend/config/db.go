@@ -25,6 +25,8 @@ func Connect() {
 		&models.ChannelMember{},
 		&models.Note{},
 		&models.Attachment{},
+		&models.ChannelMessage{},
+		&models.AIConfig{},
 	)
 	if err != nil {
 		log.Fatal("数据库迁移失败:", err)

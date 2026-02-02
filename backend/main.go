@@ -11,6 +11,7 @@ import (
 	ws "github.com/MiXiaoAi/oinote/backend/internal/websocket"
 	"github.com/MiXiaoAi/oinote/backend/internal/middleware"
 	"github.com/MiXiaoAi/oinote/backend/internal/models"
+	"github.com/MiXiaoAi/oinote/backend/config"
 	"github.com/glebarez/sqlite"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -26,8 +27,11 @@ func main() {
 		log.Fatal("无法连接数据库")
 	}
 
+	// 设置 config.DB 以供中间件使用
+	config.DB = db
+
 	// 自动迁移模式
-	db.AutoMigrate(&models.User{}, &models.Channel{}, &models.ChannelMember{}, &models.Note{}, &models.Attachment{}, &models.ChannelMessage{})
+	db.AutoMigrate(&models.User{}, &models.Channel{}, &models.ChannelMember{}, &models.Note{}, &models.Attachment{}, &models.ChannelMessage{}, &models.AIConfig{})
 
 	// 初始化 WebSocket Hub
 	wsHub := ws.NewHub()
@@ -59,6 +63,7 @@ func main() {
 	channelHandler := handlers.NewChannelHandler(db, wsHub)
 	noteHandler := handlers.NewNoteHandler(db, wsHub)
 	fileHandler := handlers.NewFileHandler(db)
+	aiHandler := handlers.NewAIHandler(db)
 
 	// WebSocket 路由
 	app.Use("/ws", func(c *fiber.Ctx) error {
@@ -146,6 +151,23 @@ func main() {
 	protected.Get("/notes/search", noteHandler.SearchNotes)
 
 	protected.Post("/upload", fileHandler.Upload)
+
+	// AI 配置管理路由（仅管理员）
+	admin := r.Group("/admin", middleware.AuthRequired, middleware.AdminRequired)
+	admin.Get("/ai-config", aiHandler.GetAIConfig)
+	admin.Put("/ai-config", aiHandler.UpdateAIConfig)
+	admin.Get("/stats", authHandler.GetStats)
+	admin.Get("/users", authHandler.GetAllUsers)
+	admin.Put("/users/:id/role", authHandler.UpdateUserRole)
+	admin.Delete("/users/:id", authHandler.DeleteUser)
+	admin.Get("/notes", noteHandler.GetAllNotes)
+	admin.Delete("/notes/:id", noteHandler.AdminDeleteNote)
+	admin.Get("/channels", handlers.GetAllChannels)
+	admin.Put("/channels/:id/public", handlers.AdminToggleChannelPublic)
+
+	// AI 总结路由（已登录用户）
+	protected.Post("/ai/summarize", aiHandler.SummarizeNote)
+	protected.Post("/ai/polish", aiHandler.PolishNote)
 
 	log.Fatal(app.Listen(":3000"))
 }

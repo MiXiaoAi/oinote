@@ -10,6 +10,12 @@
         :class="{ 'cursor-default': isReadonly }"
       />
       <template v-if="canEdit">
+        <button @click="summarizeNote" class="btn btn-neutral" :disabled="summarizing">
+          {{ summarizing ? '总结中...' : 'AI总结' }}
+        </button>
+        <button @click="polishNote" class="btn btn-neutral" :disabled="polishing">
+          {{ polishing ? '润色中...' : 'AI润色' }}
+        </button>
         <button @click="saveNote" class="btn btn-neutral" :disabled="saving">
           {{ saving ? '保存中...' : '保存' }}
         </button>
@@ -166,6 +172,21 @@
           <progress class="progress progress-primary w-full h-2" :value="uploadProgress" max="100"></progress>
         </div>
       </div>
+
+      <!-- Line Spacing -->
+      <div class="flex items-center gap-2 ml-2 border-l border-base-300 pl-2">
+        <span class="text-xs text-base-content/70 cursor-pointer hover:text-base-content" @click="resetLineSpacing" title="恢复默认行距">行距</span>
+        <input
+          type="range"
+          v-model.number="lineSpacing"
+          min="1"
+          max="3"
+          step="0.1"
+          class="range range-xs w-20"
+          title="调整行间距"
+        />
+        <span class="text-xs text-base-content/70 w-8">{{ lineSpacing }}</span>
+      </div>
     </div>
 
     <!-- Table Toolbar (Conditional) -->
@@ -226,7 +247,8 @@
       </div>
       <editor-content 
         :editor="editor" 
-        class="flex-1 overflow-auto pt-0 px-4 pb-4 prose max-w-none prose-neutral" 
+        class="flex-1 overflow-auto pt-0 px-4 pb-4 prose max-w-none prose-neutral"
+        :style="{ '--line-height': lineSpacing }"
         @paste="handlePaste"
       />
     </div>
@@ -307,6 +329,59 @@
         </button>
       </template>
     </div>
+
+    <!-- AI Summary Modal -->
+    <dialog id="ai_summary_modal" class="modal modal-bottom sm:modal-middle">
+      <div class="modal-box max-w-2xl">
+        <h3 class="font-bold text-lg mb-4">AI 总结</h3>
+        <div v-if="summary" class="prose prose-sm max-w-none" v-html="formatSummary(summary)"></div>
+        <div v-else-if="summarizing" class="flex items-center justify-center py-8">
+          <span class="loading loading-spinner loading-lg text-neutral"></span>
+          <span class="ml-3 text-base-content/70">AI 正在总结中...</span>
+        </div>
+        <div class="modal-action">
+          <form method="dialog">
+            <button class="btn">关闭</button>
+          </form>
+        </div>
+      </div>
+      <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+      </form>
+    </dialog>
+
+    <!-- AI Polish Modal -->
+    <dialog id="ai_polish_modal" class="modal modal-bottom sm:modal-middle">
+      <div class="modal-box max-w-3xl">
+        <h3 class="font-bold text-lg mb-4">AI 润色</h3>
+        <div v-if="polishedContent" class="space-y-4">
+          <div>
+            <label class="label">
+              <span class="label-text font-medium">润色后的内容</span>
+            </label>
+            <div class="prose prose-sm max-w-none bg-base-200 p-4 rounded-lg max-h-96 overflow-auto" v-html="formatPolished(polishedContent)"></div>
+          </div>
+        </div>
+        <div v-else-if="polishing" class="flex items-center justify-center py-8">
+          <span class="loading loading-spinner loading-lg text-neutral"></span>
+          <span class="ml-3 text-base-content/70">AI 正在润色中...</span>
+        </div>
+        <div class="modal-action" v-if="polishedContent">
+          <form method="dialog">
+            <button class="btn">取消</button>
+          </form>
+          <button @click="applyPolishedContent" class="btn btn-neutral">应用润色</button>
+        </div>
+        <div class="modal-action" v-else>
+          <form method="dialog">
+            <button class="btn">取消</button>
+          </form>
+        </div>
+      </div>
+      <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+      </form>
+    </dialog>
   </div>
 </template>
 
@@ -314,7 +389,7 @@
 import { ref, onMounted, onBeforeUnmount, watch, nextTick, computed } from 'vue';
 import { useAuthStore } from '../stores/auth';
 import { useRoute, useRouter } from 'vue-router';
-import { Editor, EditorContent } from '@tiptap/vue-3';
+import { Editor, EditorContent, Extension } from '@tiptap/vue-3';
 import StarterKit from '@tiptap/starter-kit';
 import TextAlign from '@tiptap/extension-text-align';
 import Underline from '@tiptap/extension-underline';
@@ -341,6 +416,7 @@ import api from '../api/axios';
 import eventBus from '../utils/eventBus';
 import { getFileUrl } from '../utils/urlHelper';
 import { inject } from 'vue';
+import { marked } from 'marked';
 
 const route = useRoute();
 const router = useRouter();
@@ -362,6 +438,23 @@ const fileInputRef = ref(null);
 const isUploading = ref(false);
 const uploadProgress = ref(0);
 const isDragging = ref(false);
+
+// AI Summary state
+const summarizing = ref(false);
+const summary = ref('');
+
+// AI Polish state
+const polishing = ref(false);
+const polishedContent = ref('');
+
+// Editor state
+const lineSpacing = ref(1.5);
+
+// 配置 marked 以支持 GFM 和其他功能
+marked.setOptions({
+  breaks: true,  // 支持换行符转换为 <br>
+  gfm: true,     // 启用 GitHub Flavored Markdown
+});
 
 // 计算属性：是否可以编辑（未登录时是访客，或登录时不是作者）
 const canEdit = computed(() => {
@@ -388,6 +481,19 @@ const showContextMenu = ref(false);
 const contextMenuX = ref(0);
 const contextMenuY = ref(0);
 const contextMenuType = ref('default'); // 'default', 'table', 'selection'
+
+// 自定义扩展：按 Tab 键插入制表符
+const TabIndent = Extension.create({
+  name: 'tabIndent',
+  addKeyboardShortcuts() {
+    return {
+      Tab: () => {
+        // 插入制表符
+        return this.editor.commands.insertContent('\t');
+      },
+    };
+  },
+});
 
 const editor = new Editor({
   extensions: [
@@ -426,6 +532,7 @@ const editor = new Editor({
     TableRow,
     TableHeader,
     TableCell,
+    TabIndent,
   ],
   content: '',
   onUpdate: ({ editor }) => {
@@ -479,17 +586,32 @@ const closeContextMenu = () => {
 
 // Global click listener to close context menu
 onMounted(() => {
-  window.addEventListener('click', closeContextMenu);
+  loadNote();
+  eventBus.on('note-updated', handleExternalNoteUpdate);
+
+  // 添加键盘快捷键监听
+  window.addEventListener('keydown', handleKeyboardShortcuts);
   // Prevent browser from opening files when dragging
   window.addEventListener('dragover', (e) => e.preventDefault());
   window.addEventListener('drop', (e) => e.preventDefault());
-  loadNote();
 });
+
+const handleKeyboardShortcuts = (e) => {
+  // Ctrl+S 保存笔记
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault();
+    if (canEdit.value) {
+      saveNote();
+    }
+  }
+};
 
 onBeforeUnmount(() => {
   window.removeEventListener('click', closeContextMenu);
   window.removeEventListener('dragover', (e) => e.preventDefault());
   window.removeEventListener('drop', (e) => e.preventDefault());
+  window.removeEventListener('keydown', handleKeyboardShortcuts);
+  eventBus.off('note-updated', handleExternalNoteUpdate);
   editor.destroy();
 });
 
@@ -501,6 +623,7 @@ const autoSave = async () => {
     const data = {
       title: title.value,
       content: editor.getHTML(),
+      line_spacing: lineSpacing.value,
     };
     await api.put(`/notes/${route.params.id}`, data);
     lastSavedContent.value = editor.getHTML();
@@ -520,6 +643,11 @@ const showSaveStatus = (message, type) => {
   }
 };
 
+const resetLineSpacing = () => {
+  lineSpacing.value = 1.5;
+  if (notification) notification.showNotification('已恢复默认行间距', 'success');
+};
+
 const loadNote = async () => {
   const seq = ++loadSeq;
   loadingNote.value = true;
@@ -531,6 +659,7 @@ const loadNote = async () => {
       editor.commands.setContent(res.data.content);
       noteOwnerId.value = res.data.owner_id;
       noteChannelId.value = res.data.channel_id;
+      lineSpacing.value = res.data.line_spacing || 1.5;
 
       // 获取笔记所有者信息
       if (res.data.owner_id) {
@@ -604,6 +733,7 @@ const saveNote = async () => {
     const data = {
       title: title.value || '无标题',
       content: editor.getHTML(),
+      line_spacing: lineSpacing.value,
     };
 
     if (route.params.id) {
@@ -633,6 +763,123 @@ const saveNote = async () => {
     }
     saving.value = false;
   }
+};
+
+const summarizeNote = async () => {
+  if (!authStore.isAuthenticated) {
+    if (notification) notification.showNotification('请先登录', 'error');
+    return;
+  }
+
+  const content = editor.getHTML();
+  const currentTitle = title.value || '无标题';
+
+  // 提取纯文本内容，移除图片等媒体元素
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = content;
+
+  // 移除所有图片、视频、音频等媒体元素
+  const mediaElements = tempDiv.querySelectorAll('img, video, audio, iframe, object, embed');
+  mediaElements.forEach(el => el.remove());
+
+  // 提取纯文本内容
+  const textContent = tempDiv.textContent || tempDiv.innerText || '';
+
+  if (textContent.trim().length < 10) {
+    if (notification) notification.showNotification('笔记内容太少，无法总结', 'error');
+    return;
+  }
+
+  summarizing.value = true;
+  summary.value = '';
+
+  // 打开模态框
+  const modal = document.getElementById('ai_summary_modal');
+  if (modal) modal.showModal();
+
+  try {
+    const res = await api.post('/ai/summarize', {
+      title: currentTitle,
+      content: textContent,
+    });
+    summary.value = res.data.summary;
+  } catch (err) {
+    if (notification) {
+      notification.showNotification(err.response?.data?.error || 'AI 总结失败', 'error');
+    }
+    if (modal) modal.close();
+  } finally {
+    summarizing.value = false;
+  }
+};
+
+const formatSummary = (text) => {
+  // 使用 marked 解析 Markdown
+  return marked.parse(text);
+};
+
+const polishNote = async () => {
+  if (!authStore.isAuthenticated) {
+    if (notification) notification.showNotification('请先登录', 'error');
+    return;
+  }
+
+  const content = editor.getHTML();
+  const currentTitle = title.value || '无标题';
+
+  // 提取纯文本内容，移除图片等媒体元素
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = content;
+
+  // 移除所有图片、视频、音频等媒体元素
+  const mediaElements = tempDiv.querySelectorAll('img, video, audio, iframe, object, embed');
+  mediaElements.forEach(el => el.remove());
+
+  // 提取纯文本内容
+  const textContent = tempDiv.textContent || tempDiv.innerText || '';
+
+  if (textContent.trim().length < 10) {
+    if (notification) notification.showNotification('笔记内容太少，无法润色', 'error');
+    return;
+  }
+
+  polishing.value = true;
+  polishedContent.value = '';
+
+  // 打开模态框
+  const modal = document.getElementById('ai_polish_modal');
+  if (modal) modal.showModal();
+
+  try {
+    const res = await api.post('/ai/polish', {
+      title: currentTitle,
+      content: textContent,
+    });
+    polishedContent.value = res.data.polished;
+  } catch (err) {
+    if (notification) {
+      notification.showNotification(err.response?.data?.error || 'AI 润色失败', 'error');
+    }
+    if (modal) modal.close();
+  } finally {
+    polishing.value = false;
+  }
+};
+
+const applyPolishedContent = () => {
+  if (polishedContent.value) {
+    // 将 Markdown 转换为 HTML 后应用，保留格式
+    const htmlContent = formatPolished(polishedContent.value);
+    editor.commands.setContent(htmlContent);
+    const modal = document.getElementById('ai_polish_modal');
+    if (modal) modal.close();
+    if (notification) notification.showNotification('已应用润色内容', 'success');
+  }
+};
+
+const formatPolished = (text) => {
+  // 使用 marked 解析 Markdown
+  return marked.parse(text);
 };
 
 const handleExternalNoteUpdate = (payload) => {
@@ -873,9 +1120,9 @@ onBeforeUnmount(() => {
   background-color: #1a1a1a;
   color: #e6edf3;
   font-family: 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace;
-  padding: 1rem;
-  border-radius: 0.5rem;
-  margin: 1rem 0;
+  padding: 0.75rem;
+  border-radius: 0.375rem;
+  margin: 0.5em 0;
   overflow-x: auto;
   border: 1px solid hsl(var(--bc) / 0.3);
 }
@@ -896,6 +1143,35 @@ onBeforeUnmount(() => {
   border-radius: 0.375rem;
   font-family: 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 0.875em;
+}
+
+/* 段落行间距 - 使用 CSS 变量 */
+.ProseMirror p {
+  margin: 0.5em 0;
+  line-height: var(--line-height, 1.5);
+}
+
+/* 其他元素的行间距 */
+.ProseMirror h1,
+.ProseMirror h2,
+.ProseMirror h3,
+.ProseMirror h4,
+.ProseMirror h5,
+.ProseMirror h6,
+.ProseMirror ul,
+.ProseMirror ol,
+.ProseMirror li,
+.ProseMirror blockquote {
+  line-height: var(--line-height, 1.5);
+}
+
+/* 引用样式 */
+.ProseMirror blockquote {
+  border-left: 4px solid hsl(var(--pf));
+  padding-left: 1em;
+  margin: 0.5em 0;
+  color: hsl(var(--bc) / 0.7);
+  font-style: italic;
 }
 
 /* Dragging state */
@@ -933,5 +1209,142 @@ onBeforeUnmount(() => {
 
 .ProseMirror img:focus {
   outline: 2px solid hsl(var(--pf));
+}
+
+/* 制表符样式 - 确保存储和显示 */
+.ProseMirror {
+  white-space: pre-wrap;
+  tab-size: 4;
+  -moz-tab-size: 4;
+  -o-tab-size: 4;
+}
+
+/* Markdown 渲染样式 */
+.prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+  font-weight: 700;
+  line-height: 1.25;
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+}
+
+.prose h1 {
+  font-size: 2em;
+  border-bottom: 1px solid hsl(var(--bc) / 0.2);
+  padding-bottom: 0.3em;
+}
+
+.prose h2 {
+  font-size: 1.5em;
+  border-bottom: 1px solid hsl(var(--bc) / 0.15);
+  padding-bottom: 0.3em;
+}
+
+.prose h3 {
+  font-size: 1.25em;
+}
+
+.prose ul, .prose ol {
+  padding-left: 1.5em;
+  margin: 1em 0;
+}
+
+.prose ul {
+  list-style-type: disc;
+}
+
+.prose ol {
+  list-style-type: decimal;
+}
+
+.prose li {
+  margin: 0.25em 0;
+}
+
+.prose ul ul, .prose ol ul, .prose ul ol, .prose ol ol {
+  margin: 0.25em 0;
+}
+
+.prose ul ul {
+  list-style-type: circle;
+}
+
+.prose ul ul ul {
+  list-style-type: square;
+}
+
+.prose strong {
+  font-weight: 700;
+}
+
+.prose em {
+  font-style: italic;
+}
+
+.prose blockquote {
+  border-left: 4px solid hsl(var(--pf));
+  padding-left: 1em;
+  margin: 0.5em 0;
+  color: hsl(var(--bc) / 0.7);
+  font-style: italic;
+}
+
+.prose hr {
+  border: none;
+  border-top: 2px solid hsl(var(--bc) / 0.2);
+  margin: 2em 0;
+}
+
+.prose pre {
+  background-color: #1a1a1a;
+  color: #e6edf3;
+  padding: 0.75rem;
+  border-radius: 0.375rem;
+  overflow-x: auto;
+  margin: 0.5em 0;
+}
+
+.prose code {
+  background-color: hsl(var(--bc) / 0.15);
+  color: hsl(var(--pc));
+  padding: 0.2em 0.4em;
+  border-radius: 0.25em;
+  font-family: 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.875em;
+}
+
+.prose pre code {
+  background: none;
+  padding: 0;
+  color: #e6edf3;
+}
+
+.prose a {
+  color: hsl(var(--pf));
+  text-decoration: underline;
+}
+
+.prose a:hover {
+  text-decoration: none;
+}
+
+.prose table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+}
+
+.prose th, .prose td {
+  border: 1px solid hsl(var(--bc) / 0.3);
+  padding: 0.5em 1em;
+  text-align: left;
+}
+
+.prose th {
+  background-color: hsl(var(--bc) / 0.1);
+  font-weight: 700;
+}
+
+.prose tr:nth-child(even) {
+  background-color: hsl(var(--bc) / 0.05);
 }
 </style>
