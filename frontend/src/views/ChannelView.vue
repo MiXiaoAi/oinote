@@ -202,14 +202,14 @@
                 v-else
                 v-for="note in notes"
                 :key="note.id"
-                class="p-3 rounded-lg border border-base-300 hover:border-primary hover:shadow-md cursor-pointer transition-all bg-base-100 group"
+                class="p-3 rounded-lg border border-base-300 hover:border-base-content hover:shadow-md cursor-pointer transition-all bg-base-100 group"
                 @click="openNote(note)"
                 @contextmenu.prevent="handleNoteContextMenu($event, note)"
               >
                 <div class="flex items-start gap-2">
-                  <FileText class="w-5 h-5 text-base-content/30 shrink-0 mt-0.5 group-hover:text-primary transition-colors" />
+                  <FileText class="w-5 h-5 text-base-content/30 shrink-0 mt-0.5 group-hover:text-base-content transition-colors" />
                   <div class="flex-1 min-w-0">
-                    <div class="font-semibold text-sm truncate group-hover:text-primary transition-colors">
+                    <div class="font-semibold text-sm truncate group-hover:text-base-content transition-colors">
                       {{ note.title || '无标题' }}
                     </div>
                     <div v-if="tagsFor(note).length" class="mt-1.5 flex flex-wrap gap-1">
