@@ -45,40 +45,41 @@
               </div>
 
               <!-- User Info -->
-                          <div class="flex-1">
-                            <div class="flex items-center gap-2 mb-1">
-                              <h3 class="font-bold text-base-content">
-                                {{ approval.status === 'invited' ? (approval.channel?.owner?.nickname || approval.channel?.owner?.username) : (approval.user?.nickname || approval.user?.username) }}
-                              </h3>
-                              <span class="text-sm text-base-content/60">
-                                @{{ approval.status === 'invited' ? approval.channel?.owner?.username : approval.user?.username }}
-                              </span>
-                            </div>
-                            <p class="text-sm text-base-content/70">
-                              {{ approval.status === 'invited' ? `邀请您加入频道: ${approval.channel?.name}` : `申请加入频道: ${approval.channel?.name}` }}
-                            </p>
-                            <p class="text-xs text-base-content/50 mt-1">
-                              {{ approval.status === 'invited' ? '邀请时间' : '申请时间' }}: {{ formatDate(approval.joined_at) }}
-                            </p>
-                          </div>
-              
-                          <!-- Actions -->
-                          <div class="flex gap-2">
-                            <button
-                              @click="approval.status === 'invited' ? acceptInvitation(approval.id) : approveRequest(approval.id)"
-                              :disabled="approval._processing"
-                              class="btn btn-sm btn-success text-white"
-                            >
-                              {{ approval._processing ? '处理中...' : (approval.status === 'invited' ? '接受' : '批准') }}
-                            </button>
-                            <button
-                              @click="approval.status === 'invited' ? rejectInvitation(approval.id) : rejectRequest(approval.id)"
-                              :disabled="approval._processing"
-                              class="btn btn-sm btn-error text-white"
-                            >
-                              {{ approval._processing ? '处理中...' : '拒绝' }}
-                            </button>
-                          </div>            </div>
+              <div class="flex-1">
+                <div class="flex items-center gap-2 mb-1">
+                  <h3 class="font-bold text-base-content">
+                    {{ approval.status === 'invited' ? (approval.channel?.owner?.nickname || approval.channel?.owner?.username) : (approval.user?.nickname || approval.user?.username) }}
+                  </h3>
+                  <span class="text-sm text-base-content/60">
+                    @{{ approval.status === 'invited' ? approval.channel?.owner?.username : approval.user?.username }}
+                  </span>
+                </div>
+                <p class="text-sm text-base-content/70">
+                  {{ approval.status === 'invited' ? `邀请您加入频道: ${approval.channel?.name}` : `申请加入频道: ${approval.channel?.name}` }}
+                </p>
+                <p class="text-xs text-base-content/50 mt-1">
+                  {{ approval.status === 'invited' ? '邀请时间' : '申请时间' }}: {{ formatDate(approval.joined_at) }}
+                </p>
+              </div>
+
+              <!-- Actions -->
+              <div class="flex gap-2">
+                <button
+                  @click="approval.status === 'invited' ? acceptInvitation(approval.id) : approveRequest(approval.id)"
+                  :disabled="approval._processing"
+                  class="btn btn-sm btn-success text-white"
+                >
+                  {{ approval._processing ? '处理中...' : (approval.status === 'invited' ? '接受' : '批准') }}
+                </button>
+                <button
+                  @click="approval.status === 'invited' ? rejectInvitation(approval.id) : rejectRequest(approval.id)"
+                  :disabled="approval._processing"
+                  class="btn btn-sm btn-error text-white"
+                >
+                  {{ approval._processing ? '处理中...' : '拒绝' }}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
