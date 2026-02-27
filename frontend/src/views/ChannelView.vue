@@ -370,16 +370,17 @@
     <aside class="hidden lg:block w-64 border-l border-base-300 px-4 py-4 space-y-3">
       <h2 class="text-sm font-bold text-base-content mb-2">成员</h2>
       <div v-if="initialLoading" class="flex flex-col items-center justify-center h-24 text-xs text-base-content/30">
-                      <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-neutral mb-2"></div>
-                      <div>加载中...</div>
-                    </div>
-                    <div v-else-if="loading && members.length === 0" class="flex flex-col items-center justify-center h-24 text-xs text-base-content/30">
-                      <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-neutral mb-2"></div>
-                      <div>加载成员中...</div>
-                    </div>
-                    <div v-else-if="members === null || members.length === 0" class="flex flex-col items-center justify-center h-24 text-xs text-base-content/40">
-                                    <div class="text-base mb-1 opacity-30">暂无成员</div>
-                                  </div>      <div v-else v-for="m in members" :key="m.id" class="flex items-center space-x-2 p-2 rounded-lg border border-transparent hover:border-base-300 hover:bg-base-100 transition-all cursor-pointer" @click="openMemberPanel(m)">
+        <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-neutral mb-2"></div>
+        <div>加载中...</div>
+      </div>
+      <div v-else-if="loading && members.length === 0" class="flex flex-col items-center justify-center h-24 text-xs text-base-content/30">
+        <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-neutral mb-2"></div>
+        <div>加载成员中...</div>
+      </div>
+      <div v-else-if="members === null || members.length === 0" class="flex flex-col items-center justify-center h-24 text-xs text-base-content/40">
+        <div class="text-base mb-1 opacity-30">暂无成员</div>
+      </div>
+      <div v-else v-for="m in members" :key="m.id" class="flex items-center space-x-2 p-2 rounded-lg border border-transparent hover:border-base-300 hover:bg-base-100 transition-all cursor-pointer" @click="openMemberPanel(m)">
         <div class="avatar">
           <div class="bg-neutral text-neutral-content rounded-full w-9 h-9 flex items-center justify-center text-sm font-medium overflow-hidden">
             <img v-if="m.user?.avatar" :src="getFileUrl(m.user.avatar)" alt="avatar" class="w-full h-full object-cover" />
@@ -494,6 +495,25 @@
           <div class="space-y-2">
             <h5 class="text-sm font-bold text-base-content/70 mb-2">操作</h5>
 
+            <!-- 自己且非owner：退出频道 -->
+            <button
+              v-if="isSelf(selectedMember) && !canDissolveChannel(selectedMember)"
+              @click="leaveChannel"
+              class="w-full btn btn-sm btn-error text-white justify-start"
+            >
+              退出频道
+            </button>
+
+            <!-- Owner：解散频道 -->
+            <button
+              v-if="canDissolveChannel(selectedMember)"
+              @click="dissolveChannel"
+              class="w-full btn btn-sm btn-error text-white justify-start"
+            >
+              解散频道
+            </button>
+
+            <!-- 管理成员角色 -->
             <div v-if="canManageMember(selectedMember)" class="dropdown dropdown-top w-full">
               <div tabindex="0" role="button" class="w-full btn btn-sm justify-start btn-warning">
                 更改角色
@@ -513,17 +533,19 @@
               </ul>
             </div>
 
+            <!-- 移出成员 -->
             <button
               v-if="canRemoveMember(selectedMember)"
               @click="removeMember"
-              class="w-full btn btn-sm btn-error text-error-content justify-start text-white"
+              class="w-full btn btn-sm btn-error text-white justify-start"
             >
               移出频道
             </button>
 
+            <!-- 无操作权限 -->
             <button
-              v-if="!canManageMember(selectedMember) && !canRemoveMember(selectedMember)"
-              class="w-full btn btn-sm btn-ghost justify-start opacity-50 text-white"
+              v-if="!isSelf(selectedMember) && !canManageMember(selectedMember) && !canRemoveMember(selectedMember) && !canDissolveChannel(selectedMember)"
+              class="w-full btn btn-sm btn-ghost justify-start opacity-50"
               disabled
             >
               无操作权限
@@ -1316,6 +1338,9 @@ const canManageMember = (member) => {
   const currentMember = members.value.find(m => m.user_id === authStore.user?.id);
   if (!currentMember) return false;
 
+  // 不能操作自己
+  if (member.user_id === authStore.user?.id) return false;
+
   // 只有管理员和所有者可以管理成员
   if (currentMember.role !== 'admin' && currentMember.role !== 'owner') return false;
 
@@ -1333,17 +1358,73 @@ const canRemoveMember = (member) => {
   const currentMember = members.value.find(m => m.user_id === authStore.user?.id);
   if (!currentMember) return false;
 
+  // 不能操作自己
+  if (member.user_id === authStore.user?.id) return false;
+
   // 不能移出所有者
   if (member.role === 'owner') return false;
 
-  // 管理员和所有者可以移出成员
-  if (currentMember.role === 'admin' || currentMember.role === 'owner') {
-    // 管理员不能移出其他管理员
-    if (currentMember.role === 'admin' && member.role === 'admin') return false;
+  // admin 只能移出普通成员
+  if (currentMember.role === 'admin') {
+    return member.role === 'member';
+  }
+
+  // owner 可以移出任何人（除了自己）
+  if (currentMember.role === 'owner') {
     return true;
   }
 
   return false;
+};
+
+const isSelf = (member) => {
+  if (!member) return false;
+  return member.user_id === authStore.user?.id;
+};
+
+const canDissolveChannel = (member) => {
+  if (!member) return false;
+  const currentMember = members.value.find(m => m.user_id === authStore.user?.id);
+  if (!currentMember) return false;
+
+  // 只有 owner 点击自己时可以解散频道
+  return currentMember.role === 'owner' && member.role === 'owner' && member.user_id === authStore.user?.id;
+};
+
+const leaveChannel = async () => {
+  if (!selectedMember.value) return;
+
+  if (!confirm('确定要退出该频道吗？')) return;
+
+  try {
+    await api.delete(`/channels/${route.params.id}/members/${authStore.user?.id}`);
+    if (notification) {
+      notification.showNotification('已退出频道', 'success');
+    }
+    router.push('/channels');
+  } catch (err) {
+    if (notification) {
+      notification.showNotification(err.response?.data?.error || '退出失败', 'error');
+    }
+  }
+};
+
+const dissolveChannel = async () => {
+  if (!selectedMember.value) return;
+
+  if (!confirm('确定要解散该频道吗？此操作不可恢复！')) return;
+
+  try {
+    await api.delete(`/channels/${route.params.id}`);
+    if (notification) {
+      notification.showNotification('频道已解散', 'success');
+    }
+    router.push('/channels');
+  } catch (err) {
+    if (notification) {
+      notification.showNotification(err.response?.data?.error || '解散失败', 'error');
+    }
+  }
 };
 
 const changeMemberRoleTo = async (newRole) => {

@@ -92,6 +92,7 @@ import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import api from '../api/axios';
 import { getFileUrl } from '../utils/urlHelper';
+import eventBus from '../utils/eventBus';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -135,6 +136,8 @@ const approveRequest = async (approvalId) => {
 
     // 重新加载列表
     await loadApprovals();
+    // 通知 Sidebar 更新红点状态
+    eventBus.emit('notifications-updated');
   } catch (error) {
     console.error('Failed to approve request:', error);
     const approval = approvals.value.find(a => a.id === approvalId);
@@ -156,6 +159,8 @@ const acceptInvitation = async (invitationId) => {
 
     // 重新加载列表
     await loadApprovals();
+    // 通知 Sidebar 更新红点状态
+    eventBus.emit('notifications-updated');
   } catch (error) {
     console.error('Failed to accept invitation:', error);
     const approval = approvals.value.find(a => a.id === invitationId);
@@ -179,6 +184,8 @@ const rejectRequest = async (approvalId) => {
 
     // 重新加载列表
     await loadApprovals();
+    // 通知 Sidebar 更新红点状态
+    eventBus.emit('notifications-updated');
   } catch (error) {
     console.error('Failed to reject request:', error);
     const approval = approvals.value.find(a => a.id === approvalId);
@@ -202,6 +209,8 @@ const rejectInvitation = async (invitationId) => {
 
     // 重新加载列表
     await loadApprovals();
+    // 通知 Sidebar 更新红点状态
+    eventBus.emit('notifications-updated');
   } catch (error) {
     console.error('Failed to reject invitation:', error);
     const approval = approvals.value.find(a => a.id === invitationId);

@@ -17,6 +17,12 @@ const router = createRouter({
             ],
         },
         {
+            path: '/admin',
+            name: 'admin',
+            component: () => import('../views/Admin.vue'),
+            meta: { requiresAuth: true, requiresAdmin: true },
+        },
+        {
             path: '/login',
             name: 'login',
             component: () => import('../views/Auth/Login.vue'),
@@ -37,6 +43,9 @@ router.beforeEach((to, from, next) => {
     if (to.meta.requiresAuth && !authStore.isAuthenticated) {
         // 需要认证但用户未登录，重定向到登录页
         next({ name: 'login', query: { redirect: to.fullPath } });
+    } else if (to.meta.requiresAdmin && authStore.user?.role !== 'admin') {
+        // 需要管理员权限但用户不是管理员，重定向到首页
+        next({ name: 'home' });
     } else {
         // 不需要认证或用户已登录，继续导航
         next();
