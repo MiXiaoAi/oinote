@@ -1,0 +1,34 @@
+# Node
+node_modules/
+frontend/pnpm-lock.yaml
+frontend/package-lock.json
+
+# Go
+backend/oinote.exe
+backend/oinote
+
+# Database
+backend/data/*.db
+backend/data/*.db-shm
+backend/data/*.db-wal
+
+# Environment
+backend/.env
+
+# Thesis (personal info)
+thesis/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Personal thesis files (root)
+*.docx
+*.pdf
+~$*
+
+# OS
+.DS_Store
+Thumbs.db
